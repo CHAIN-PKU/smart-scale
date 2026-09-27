@@ -9,10 +9,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from scale_host.fusion import Sale
+from scale_host.catalog.lookup import build_product_info
+from scale_host.device.interface import DisplayRequest
+from scale_host.device.serial_device import LinePort, SerialScaleDevice
+from scale_host.domain import ScaleStatus, WeightReading
+from scale_host.fusion import Sale, fuse
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
+from scale_host.quote import DEMO_IMAGE, identify_and_price
 from scale_host.sale import price_stable_scenario
 from scale_host.storage import SqliteRepository, WeighingSession
+from scale_host.vision.interface import build_vision
 
 DEMO_SESSION_ID = "banana-demo"
 DEMO_TIMESTAMP = "2026-09-27T12:00:00"
@@ -42,6 +48,41 @@ async def record_stable_sale(
     session = session_from_sale(sale, session_id=session_id, timestamp=timestamp)
     repository.save_session(session)
     return session
+
+
+async def price_open_port(
+    port: LinePort,
+    repository: SqliteRepository,
+    *,
+    session_id: str,
+    timestamp: str,
+) -> WeighingSession:
+    device = SerialScaleDevice(port)
+    await device.connect()
+    reading: WeightReading | None = None
+    try:
+        async for event in device.events():
+            if (
+                isinstance(event, WeightReading)
+                and event.state is ScaleStatus.WEIGHT_STABLE
+                and event.stable
+                and event.status == "ok"
+                and event.weight_g > 0
+            ):
+                reading = event
+                break
+        if reading is None:
+            raise RuntimeError("no stable weight")
+        quote = identify_and_price(DEMO_IMAGE, build_vision(), build_product_info())
+        sale = fuse(reading, quote)
+        await device.display(
+            DisplayRequest(product=sale.label, weight_g=sale.weight_g, price=sale.amount_yuan)
+        )
+        session = session_from_sale(sale, session_id=session_id, timestamp=timestamp)
+        repository.save_session(session)
+        return session
+    finally:
+        await device.disconnect()
 
 
 def main() -> None:

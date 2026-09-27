@@ -62,30 +62,32 @@ def test_serial_without_a_port_is_rejected(monkeypatch) -> None:
         raise AssertionError("expected SystemExit")
 
 
-def test_serial_with_a_port_opens_and_closes(capsys, monkeypatch) -> None:
+def test_serial_replay_prices_the_stable_line(capsys, monkeypatch, tmp_path) -> None:
+    from scale_host.serial_replay import BANANA_LINES, ScriptedPort
+
     monkeypatch.setenv("SCALE_DEVICE", "serial")
     monkeypatch.setenv("SERIAL_PORT", "COM3")
     monkeypatch.setenv("VISION_PROVIDER", "mock")
     monkeypatch.setenv("PRODUCT_INFO_PROVIDER", "mock")
-    closed = {"value": False}
-
-    class _Opened:
-        def close(self) -> None:
-            closed["value"] = True
-
-    monkeypatch.setattr("scale_host.main.open_system_port", lambda name: _Opened())
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "scale.db"))
+    port = ScriptedPort(BANANA_LINES)
+    monkeypatch.setattr("scale_host.main.open_system_port", lambda name: port)
     main()
     lines = capsys.readouterr().out.splitlines()
-    assert lines == [
+    assert lines[:10] == [
         "Smart Scale Host",
         "device: serial",
         "vision: mock",
         "product_info: mock",
         "serial_port: COM3",
         "serial_open: ok",
+        "label: banana",
+        "weight_g: 326.4",
+        "price_per_kg: 12.0",
+        "amount_yuan: 3.92",
     ]
-    assert closed["value"] is True
-    assert "amount_yuan" not in "\n".join(lines)
+    assert lines[10].startswith("stored: banana-")
+    assert port.closed is True
 
 
 def test_serial_open_failure_stops_the_host(monkeypatch, capsys) -> None:

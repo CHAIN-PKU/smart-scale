@@ -10,10 +10,10 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 
-from scale_host.device.serial_device import SerialOpenError, open_system_port
-from scale_host.pipeline import record_stable_sale
+from scale_host.device.serial_device import LinePort, SerialOpenError, open_system_port
+from scale_host.pipeline import price_open_port, record_stable_sale
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
-from scale_host.storage import SqliteRepository
+from scale_host.storage import SqliteRepository, WeighingSession
 
 _DEVICES = {"simulator", "serial"}
 _VISION = {"disabled", "mock", "minimax", "volcano"}
@@ -52,11 +52,43 @@ def main() -> None:
         except SerialOpenError:
             print(f"cannot open serial port: {port_name}", file=sys.stderr)
             raise SystemExit(2)
-        opened.close()
         print("serial_open: ok")
+        if vision_name == "disabled" or product_info_name == "disabled":
+            opened.close()
+            return
+        try:
+            _print_recorded_sale_from_port(opened)
+        finally:
+            opened.close()
         return
     if device_name == "simulator" and vision_name != "disabled" and product_info_name != "disabled":
         _print_recorded_sale()
+
+
+def _print_recorded_sale_from_port(port: LinePort) -> None:
+    repository = SqliteRepository(os.getenv("DATABASE_PATH", "data/scale.db"))
+    session_id = f"banana-{uuid4().hex[:8]}"
+    timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    try:
+        asyncio.run(
+            price_open_port(port, repository, session_id=session_id, timestamp=timestamp)
+        )
+        stored = repository.get_session(session_id)
+    except (RuntimeError, MissingApiKey, RemoteCallNotReady) as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
+    _print_stored(stored)
+
+
+def _print_stored(stored: WeighingSession | None) -> None:
+    if stored is None or stored.amount_yuan is None:
+        print("sale was not stored", file=sys.stderr)
+        raise SystemExit(2)
+    print(f"label: {stored.label}")
+    print(f"weight_g: {stored.weight_g}")
+    print(f"price_per_kg: {stored.price_per_kg}")
+    print(f"amount_yuan: {stored.amount_yuan:.2f}")
+    print(f"stored: {stored.id}")
 
 
 def _print_recorded_sale() -> None:
@@ -71,14 +103,7 @@ def _print_recorded_sale() -> None:
     except (RuntimeError, MissingApiKey, RemoteCallNotReady) as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(2) from exc
-    if stored is None or stored.amount_yuan is None:
-        print("sale was not stored", file=sys.stderr)
-        raise SystemExit(2)
-    print(f"label: {stored.label}")
-    print(f"weight_g: {stored.weight_g}")
-    print(f"price_per_kg: {stored.price_per_kg}")
-    print(f"amount_yuan: {stored.amount_yuan:.2f}")
-    print(f"stored: {stored.id}")
+    _print_stored(stored)
 
 
 if __name__ == "__main__":
