@@ -1,4 +1,5 @@
 from scale_host.main import main
+from scale_host.device.serial_device import SerialOpenError
 from scale_host.storage import SqliteRepository
 
 
@@ -61,11 +62,18 @@ def test_serial_without_a_port_is_rejected(monkeypatch) -> None:
         raise AssertionError("expected SystemExit")
 
 
-def test_serial_with_a_port_does_not_run_the_simulator_sale(capsys, monkeypatch) -> None:
+def test_serial_with_a_port_opens_and_closes(capsys, monkeypatch) -> None:
     monkeypatch.setenv("SCALE_DEVICE", "serial")
     monkeypatch.setenv("SERIAL_PORT", "COM3")
     monkeypatch.setenv("VISION_PROVIDER", "mock")
     monkeypatch.setenv("PRODUCT_INFO_PROVIDER", "mock")
+    closed = {"value": False}
+
+    class _Opened:
+        def close(self) -> None:
+            closed["value"] = True
+
+    monkeypatch.setattr("scale_host.main.open_system_port", lambda name: _Opened())
     main()
     lines = capsys.readouterr().out.splitlines()
     assert lines == [
@@ -74,4 +82,26 @@ def test_serial_with_a_port_does_not_run_the_simulator_sale(capsys, monkeypatch)
         "vision: mock",
         "product_info: mock",
         "serial_port: COM3",
+        "serial_open: ok",
     ]
+    assert closed["value"] is True
+    assert "amount_yuan" not in "\n".join(lines)
+
+
+def test_serial_open_failure_stops_the_host(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("SCALE_DEVICE", "serial")
+    monkeypatch.setenv("SERIAL_PORT", "COM3")
+    monkeypatch.setenv("VISION_PROVIDER", "disabled")
+
+    def _fail(name: str) -> None:
+        raise SerialOpenError(name)
+
+    monkeypatch.setattr("scale_host.main.open_system_port", _fail)
+    try:
+        main()
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("expected SystemExit")
+    assert "cannot open serial port: COM3" in capsys.readouterr().err
+

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from scale_host.device.interface import DisplayRequest
 from scale_host.device.serial_device import SerialScaleDevice
 from scale_host.domain import ScaleStatus
@@ -67,3 +69,35 @@ async def test_display_writes_price_in_yuan() -> None:
     assert sent["weight_g"] == 326.4
     assert sent["price"] == 3.92
     assert len(sent["request_id"]) <= 32
+
+
+def test_unknown_port_name_is_rejected() -> None:
+    from scale_host.device.serial_device import SerialOpenError, open_system_port
+
+    with pytest.raises(SerialOpenError, match="COM_NOT_A_PORT"):
+        open_system_port("COM_NOT_A_PORT")
+
+
+def test_open_requests_115200_8n1(monkeypatch) -> None:
+    import serial
+
+    from scale_host.device.serial_device import open_system_port
+
+    captured: dict[str, object] = {}
+
+    class _FakeSerial:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def close(self) -> None:
+            captured["closed"] = True
+
+    monkeypatch.setattr(serial, "Serial", _FakeSerial)
+    opened = open_system_port("COM3")
+    opened.close()
+    assert captured["port"] == "COM3"
+    assert captured["baudrate"] == 115200
+    assert captured["bytesize"] == serial.EIGHTBITS
+    assert captured["parity"] == serial.PARITY_NONE
+    assert captured["stopbits"] == serial.STOPBITS_ONE
+

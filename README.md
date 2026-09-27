@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 3.1 串口协议**已完成。假串口可以读入一行重量 JSON，并按协议写回去皮和显示。不打开真实 COM 口。2.6 在 `3e5641d`。
+当前进度：**TODO 3.2 打开串口**已完成。写了端口名就会按 115200 8N1 打开，打不开就退出。这台电脑当前没有 COM 口。3.1 在 `910c02f`。
 
 顺序写在 `docs/todo.md`。
 
@@ -70,7 +70,7 @@ vision: disabled
 | `firmware/App/state_machine/.gitkeep` | 固件侧状态机以后放这里 |
 | `host/scale_host/__init__.py` | 包版本号 |
 | `host/scale_host/__main__.py` | 让 `python -m scale_host` 能启动 |
-| `host/scale_host/main.py` | 启动入口。模拟器打开时打印 3.92 元。串口没写端口号就退出，写了也不打开 COM |
+| `host/scale_host/main.py` | 启动入口。模拟器打开时打印 3.92 元。串口会真正打开，失败就退出 |
 | `host/scale_host/providers.py` | 没 key，或 key 还没接到网络时，抛出的两种错误 |
 | `host/scale_host/protocol/messages.py` | 把一行 JSON 变成消息，坏行拒绝 |
 | `host/scale_host/protocol/__init__.py` | 导出协议类型 |
@@ -79,7 +79,7 @@ vision: disabled
 | `host/scale_host/device/interface.py` | 秤的统一接口：连接、读事件、去皮、显示 |
 | `host/scale_host/device/dynamics.py` | 按状态机把克数变成稳定、拿走、过载 |
 | `host/scale_host/device/simulator.py` | 假秤。香蕉、噪声、拿走、过载、断开 |
-| `host/scale_host/device/serial_device.py` | 按 V1 读写串口行。测试注入假端口，不打开 COM |
+| `host/scale_host/device/serial_device.py` | 按 V1 读写串口行。`open_system_port` 以 115200 8N1 打开 COM，打不开就报错 |
 | `host/scale_host/device/__init__.py` | 导出设备接口、假秤和串口设备 |
 | `host/scale_host/vision/interface.py` | 视觉接口。mock 固定认香蕉；MiniMax 和火山引擎只留空位，不发请求 |
 | `host/scale_host/vision/__init__.py` | 导出视觉类型 |
@@ -111,8 +111,8 @@ vision: disabled
 | `tests/unit/test_protocol_messages.py` | 协议合法行和坏行 |
 | `tests/unit/test_domain_models.py` | 内部数据的形状 |
 | `tests/unit/test_simulator.py` | 假秤场景 |
-| `tests/unit/test_host_main.py` | 关闭视觉时只打印开关；mock 时打印 3.92 元；没写串口就退出 |
-| `tests/unit/test_serial_device.py` | 假端口读出 326.4 克，并写回去皮和显示 |
+| `tests/unit/test_host_main.py` | 关闭视觉时只打印开关；mock 时打印 3.92 元；串口打不开就退出 |
+| `tests/unit/test_serial_device.py` | 假端口读出 326.4 克。打开参数是 115200 8N1。不存在的端口名会失败 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |

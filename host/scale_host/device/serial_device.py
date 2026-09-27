@@ -1,4 +1,4 @@
-"""Read and write V1 protocol lines. This does not open a COM port."""
+"""Read and write V1 protocol lines. Opening a COM port is separate from parsing."""
 
 from __future__ import annotations
 
@@ -121,3 +121,42 @@ def _reading(message: WeightMessage, state: ScaleStatus | None) -> WeightReading
         status=message.status,
         state=state,
     )
+
+
+class SerialOpenError(Exception):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(f"cannot open serial port: {name}")
+
+
+class PyserialPort:
+    def __init__(self, handle: object) -> None:
+        self._handle = handle
+
+    def write(self, data: bytes) -> None:
+        self._handle.write(data)  # type: ignore[attr-defined]
+
+    def readline(self) -> bytes:
+        return self._handle.readline()  # type: ignore[attr-defined]
+
+    def close(self) -> None:
+        self._handle.close()  # type: ignore[attr-defined]
+
+
+def open_system_port(name: str) -> PyserialPort:
+    import serial
+
+    try:
+        handle = serial.Serial(
+            port=name,
+            baudrate=115200,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            timeout=1,
+            write_timeout=1,
+        )
+    except (serial.SerialException, OSError) as exc:
+        raise SerialOpenError(name) from exc
+    return PyserialPort(handle)
+

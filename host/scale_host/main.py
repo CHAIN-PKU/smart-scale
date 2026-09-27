@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 
+from scale_host.device.serial_device import SerialOpenError, open_system_port
 from scale_host.pipeline import record_stable_sale
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
 from scale_host.storage import SqliteRepository
@@ -44,7 +45,15 @@ def main() -> None:
     print(f"vision: {vision_name}")
     print(f"product_info: {product_info_name}")
     if device_name == "serial":
-        print(f"serial_port: {os.getenv('SERIAL_PORT', '').strip()}")
+        port_name = os.getenv("SERIAL_PORT", "").strip()
+        print(f"serial_port: {port_name}")
+        try:
+            opened = open_system_port(port_name)
+        except SerialOpenError:
+            print(f"cannot open serial port: {port_name}", file=sys.stderr)
+            raise SystemExit(2)
+        opened.close()
+        print("serial_open: ok")
         return
     if device_name == "simulator" and vision_name != "disabled" and product_info_name != "disabled":
         _print_recorded_sale()
