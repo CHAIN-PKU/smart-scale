@@ -27,3 +27,5 @@ include = ["simulator*", "scale_host*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["hardware: needs a connected STM32 and is excluded from the daily run"]
+addopts = "-m 'not hardware'"

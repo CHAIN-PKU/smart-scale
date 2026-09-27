@@ -2,7 +2,13 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 1.5 场景命令**已验收。`python -m scale_host` 仍只打印开关；`python -m simulator --scenario banana` 会打印称重过程。
+当前进度：**TODO 1.6 日常测试**已验收。不插板子时日常测试全绿。真板测试要单独点名才会跑。
+
+这台电脑默认禁止直接运行 `.ps1`。请用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\stm32\projects\smart-scale\scripts\test.ps1
+```
 
 报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 随每个已验收步骤追加进度和文件说明。
 
@@ -41,7 +47,7 @@ vision: disabled
 |---|---|
 | `.env.example` | 开关样例：设备用模拟器还是串口，视觉开不开，数据库文件放哪 |
 | `.gitignore` | 不提交虚拟环境、`.env`、数据库和 Keil 编译产物 |
-| `pyproject.toml` | 项目名称和依赖。运行时是 pyserial、pydantic、python-dotenv；测试另加 pytest |
+| `pyproject.toml` | 项目名称和依赖。日常 pytest 自动排除带 hardware 标记的测试 |
 | `docs/protocol.md` | V1 通信协议。一行一个 JSON，串口 115200 8N1 |
 | `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
 | `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
@@ -71,7 +77,7 @@ vision: disabled
 | `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
 | `scripts/run_host.ps1` | 启动主机 |
 | `scripts/run_simulator.ps1` | 播放场景，默认香蕉 |
-| `scripts/test.ps1` | 运行不依赖真板的测试 |
+| `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
 | `simulator/scenarios/.gitkeep` | 以后放场景数据文件。现在的场景写在代码里 |
@@ -82,6 +88,7 @@ vision: disabled
 | `tests/unit/test_simulator.py` | 假秤场景 |
 | `tests/unit/test_host_main.py` | 启动时打印的三行字 |
 | `tests/unit/test_simulator_cli.py` | 香蕉场景命令打出的克数 |
+| `tests/unit/test_dynamics.py` | 连续半秒几乎不动才算稳定；波动超过 0.5 克不算 |
 | `tests/unit/.gitkeep` | 保留单元测试目录 |
 | `tests/integration/.gitkeep` | 集成测试空位 |
-| `tests/hardware/.gitkeep` | 真板测试空位。日常 pytest 不依赖它 |
+| `tests/hardware/test_board_optional.py` | 真板测试占位。日常运行会跳过它 |
