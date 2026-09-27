@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 0.3 协议 V1**。状态机、模拟器、主机程序都还没写。
+当前进度：**TODO 0.4 状态机**已验收。模拟器和主机程序都还没写。
 
 ## 目录
 
@@ -26,6 +26,6 @@ C:/stm32/projects/smart-scale/scripts/setup.ps1
 
 解释器是 `C:/stm32/projects/smart-scale/.venv/Scripts/python.exe`。
 
-STM32 和 PC 的报文以 `docs/protocol.md` 为准。
+STM32 和 PC 的报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 只随已验收的步骤追加一小段，不一次写成完整交付。
 
 主机入口还没写，所以这一步仍然不能 `python -m scale_host`。
