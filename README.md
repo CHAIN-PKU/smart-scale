@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 3.4 连续重量**已完成。0、12、145、310、326 克先跳过，稳定的 326.4 克才计价为 3.92 元。3.3 在 `e7f93a4`。
+当前进度：**TODO 4.1 纠错**已完成。一次称重被认成香蕉之后，可以改成苹果，并读回当时的 326.4 克和图片路径。3.4 在 `7dd4df3`。
 
 顺序写在 `docs/todo.md`。
 
@@ -91,6 +91,7 @@ vision: disabled
 | `host/scale_host/sale.py` | 假秤香蕉稳定后，接上模拟识别和模拟单价，打印 3.92 元 |
 | `host/scale_host/serial_replay.py` | 不打开 COM，重放一行稳定重量，打印 3.92 元并写回显示 |
 | `host/scale_host/serial_sequence.py` | 不打开 COM。先跳过还在变化的克数，稳定的 326.4 克才计价 |
+| `host/scale_host/correct.py` | 把一次称重的商品名改掉，并读回当时的重量和图片路径 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -106,6 +107,7 @@ vision: disabled
 | `scripts/run_record.ps1` | 把这次香蕉金额写入临时数据库，再打印读回的那一行 |
 | `scripts/run_serial_replay.ps1` | 重放串口上的稳定重量行，打印 3.92 元。不打开 COM |
 | `scripts/run_serial_sequence.ps1` | 重放从 0 克到 326.4 克的过程，只给稳定重量计价 |
+| `scripts/run_correct.ps1` | 把这次香蕉改成苹果，并打印当时的重量和图片路径 |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -119,6 +121,7 @@ vision: disabled
 | `tests/unit/test_serial_device.py` | 假端口读出 326.4 克。打开参数是 115200 8N1。不存在的端口名会失败 |
 | `tests/unit/test_serial_replay.py` | 重放的稳定重量打出 3.92 元，并写回显示行 |
 | `tests/unit/test_serial_sequence.py` | 前 5 次重量被跳过，326.4 克才是 3.92 元 |
+| `tests/unit/test_correct.py` | 纠错能读回预测名、正确名、326.4 克和图片路径 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
