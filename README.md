@@ -2,19 +2,9 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 1.3 模拟秤**已验收。主机入口还没写。
+当前进度：**TODO 1.4 主机入口**已验收。默认启动只打印模拟器和视觉开关，还不读取重量。
 
-## 目录
-
-| 路径 | 以后放什么 |
-|---|---|
-| `docs/` | 协议、状态机、校准。硬件同学只看这里 |
-| `firmware/` | STM32 固件。阶段 4 再写，现在是空的 |
-| `host/scale_host/` | PC 主机。设备、视觉、融合、数据库都从这里换实现 |
-| `simulator/` | 没有板子时的称重场景 |
-| `tests/` | 日常测试不依赖真 STM32。真板测试只放 `tests/hardware/` |
-| `data/` | 商品表和测试图片 |
-| `scripts/` | Windows 启动脚本 |
+报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 随每个已验收步骤追加进度和文件说明。
 
 ## 本地环境
 
@@ -22,10 +12,70 @@
 
 ```powershell
 C:/stm32/projects/smart-scale/scripts/setup.ps1
+C:/stm32/projects/smart-scale/.venv/Scripts/python.exe -m scale_host
 ```
 
-解释器是 `C:/stm32/projects/smart-scale/.venv/Scripts/python.exe`。
+默认打印：
 
-STM32 和 PC 的报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 只随已验收的步骤追加一小段，不一次写成完整交付。
+```text
+Smart Scale Host
+device: simulator
+vision: disabled
+```
 
-主机入口还没写，所以这一步仍然不能 `python -m scale_host`。
+## 文件夹
+
+| 路径 | 现在的作用 |
+|---|---|
+| `docs/` | 协议、状态机、给硬件同学的进度说明 |
+| `firmware/` | STM32 固件。还是空位，阶段 4 再写 |
+| `host/scale_host/` | PC 主机代码 |
+| `simulator/` | 预留给场景数据。称重演放目前写在主机的模拟器里 |
+| `tests/` | 日常测试不依赖真 STM32。真板测试只放 `tests/hardware/` |
+| `data/` | 商品表和测试图片，现在是空位 |
+| `scripts/` | Windows 脚本。目前只有安装虚拟环境 |
+
+## 每个文件
+
+| 文件 | 说明 |
+|---|---|
+| `.env.example` | 开关样例：设备用模拟器还是串口，视觉开不开，数据库文件放哪 |
+| `.gitignore` | 不提交虚拟环境、`.env`、数据库和 Keil 编译产物 |
+| `pyproject.toml` | 项目名称和依赖。运行时是 pyserial、pydantic、python-dotenv；测试另加 pytest |
+| `docs/protocol.md` | V1 通信协议。一行一个 JSON，串口 115200 8N1 |
+| `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
+| `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
+| `docs/adr/.gitkeep` | 以后放架构决定记录。现在是空位 |
+| `firmware/README.md` | 说明固件还没写，F103 和 F107 不能混用 |
+| `firmware/Core/.gitkeep` | Cube 生成的核心代码以后放这里 |
+| `firmware/Drivers/hx711/.gitkeep` | HX711 驱动以后放这里。许可证确认前不拷贝别人的源码 |
+| `firmware/App/scale/.gitkeep` | 称重逻辑以后放这里 |
+| `firmware/App/protocol/.gitkeep` | 固件侧的 JSON 编码以后放这里 |
+| `firmware/App/state_machine/.gitkeep` | 固件侧状态机以后放这里 |
+| `host/scale_host/__init__.py` | 包版本号 |
+| `host/scale_host/__main__.py` | 让 `python -m scale_host` 能启动 |
+| `host/scale_host/main.py` | 读环境变量并打印设备名和视觉开关 |
+| `host/scale_host/protocol/messages.py` | 把一行 JSON 变成消息，坏行拒绝 |
+| `host/scale_host/protocol/__init__.py` | 导出协议类型 |
+| `host/scale_host/domain/models.py` | 程序内部的重量、状态、去皮命令，以及视觉和融合的空数据表 |
+| `host/scale_host/domain/__init__.py` | 导出内部数据类型 |
+| `host/scale_host/device/interface.py` | 秤的统一接口：连接、读事件、去皮、显示 |
+| `host/scale_host/device/dynamics.py` | 按状态机把克数变成稳定、拿走、过载 |
+| `host/scale_host/device/simulator.py` | 假秤。香蕉、噪声、拿走、过载、断开 |
+| `host/scale_host/device/__init__.py` | 导出设备接口和假秤 |
+| `host/scale_host/vision/.gitkeep` | 视觉实现以后放这里。现在关闭 |
+| `host/scale_host/fusion/.gitkeep` | 重量和视觉的融合以后放这里 |
+| `host/scale_host/storage/.gitkeep` | 数据库以后放这里 |
+| `host/scale_host/agent/tools/.gitkeep` | 给助手调用的工具以后放这里。助手还没做 |
+| `host/scale_host/ui/.gitkeep` | 界面以后放这里。现在只有控制台 |
+| `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
+| `simulator/scenarios/.gitkeep` | 场景数据文件的空位。场景逻辑目前在 `device/simulator.py` |
+| `data/products/.gitkeep` | 商品表空位 |
+| `data/test_images/.gitkeep` | 测试图片空位 |
+| `tests/unit/test_protocol_messages.py` | 协议合法行和坏行 |
+| `tests/unit/test_domain_models.py` | 内部数据的形状 |
+| `tests/unit/test_simulator.py` | 假秤场景 |
+| `tests/unit/test_host_main.py` | 启动时打印的三行字 |
+| `tests/unit/.gitkeep` | 保留单元测试目录 |
+| `tests/integration/.gitkeep` | 集成测试空位 |
+| `tests/hardware/.gitkeep` | 真板测试空位。日常 pytest 不依赖它 |
