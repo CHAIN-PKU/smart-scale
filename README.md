@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 2.5 集成记录**已完成。假秤、模拟识别、模拟查价和融合串起来之后，香蕉的 326.4 克和 3.92 元会写入 SQLite，再读出来。2.4 在 `b78beb2`。
+当前进度：**TODO 2.6 启动时打印结果**已完成。直接启动主机会走一遍假秤香蕉，打印 3.92 元，并把这一次写入数据库。2.5 在 `8d77739`。
 
 顺序写在 `docs/todo.md`。
 
@@ -19,7 +19,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\stm32\projects\smart-scal
 1. `VISION_PROVIDER` 选 `minimax` 或 `volcano`，只回答物品名称。
 2. `PRODUCT_INFO_PROVIDER=text` 用更小的纯文本模型查单价和简介。
 3. 没有 key 时明确失败。key 以后写在本机 `.env`，样例在 `.env.example`，仓库里不放真 key。
-4. SQLite 只存每次称重和纠错，不是商品总价表。
+4. 默认 `VISION_PROVIDER=mock`。启动主机就会用假秤打出香蕉金额。设为 `disabled` 则只打印开关。SQLite 只存每次称重和纠错，不是商品总价表。
 
 ## 本地环境
 
@@ -54,7 +54,7 @@ vision: disabled
 
 | 文件 | 说明 |
 |---|---|
-| `.env.example` | 开关样例。含 MiniMax、火山引擎和文本查价模型的 key 空位，值都是空的 |
+| `.env.example` | 开关样例。默认识别和查价都用 mock。MiniMax、火山引擎和文本模型的 key 仍是空的 |
 | `.gitignore` | 不提交虚拟环境、`.env`、数据库和 Keil 编译产物 |
 | `pyproject.toml` | 项目名称和依赖。日常 pytest 自动排除带 hardware 标记的测试 |
 | `docs/protocol.md` | V1 通信协议。一行一个 JSON，串口 115200 8N1 |
@@ -70,7 +70,7 @@ vision: disabled
 | `firmware/App/state_machine/.gitkeep` | 固件侧状态机以后放这里 |
 | `host/scale_host/__init__.py` | 包版本号 |
 | `host/scale_host/__main__.py` | 让 `python -m scale_host` 能启动 |
-| `host/scale_host/main.py` | 读环境变量并打印设备、视觉和查价三个开关 |
+| `host/scale_host/main.py` | 启动入口。默认识别打开时，打印开关、3.92 元和数据库编号 |
 | `host/scale_host/providers.py` | 没 key，或 key 还没接到网络时，抛出的两种错误 |
 | `host/scale_host/protocol/messages.py` | 把一行 JSON 变成消息，坏行拒绝 |
 | `host/scale_host/protocol/__init__.py` | 导出协议类型 |
@@ -110,7 +110,7 @@ vision: disabled
 | `tests/unit/test_protocol_messages.py` | 协议合法行和坏行 |
 | `tests/unit/test_domain_models.py` | 内部数据的形状 |
 | `tests/unit/test_simulator.py` | 假秤场景 |
-| `tests/unit/test_host_main.py` | 启动时打印设备、视觉和查价三行开关 |
+| `tests/unit/test_host_main.py` | 关闭视觉时只打印开关；mock 时打印 3.92 元和数据库编号 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
