@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.5 显示行**已完成。3.92 元写成协议里的一行 `display_result`，给单片机显示。视觉应答里的 999 元不会出现在这一行里。不打开串口，也不访问外网。5.4 已提交为 `0341533`。
+当前进度：**TODO 5.6 记下显示金额**已完成。回环算出的 3.92 元写入临时数据库，再读出来，和显示行里的金额相同。视觉应答里的 999 元不入库。不打开串口，也不访问外网。5.5 已提交为 `fbfc5cf`。
 
 顺序写在 `docs/todo.md`。
 
@@ -97,6 +97,7 @@ vision: disabled
 | `host/scale_host/response_parse.py` | 把回环 JSON 变成识别结果和单价。视觉回复里的价格不采用 |
 | `host/scale_host/reply_sale.py` | 用文本应答里的单价给稳定重量算金额。视觉应答里的价格不参与 |
 | `host/scale_host/display_line.py` | 把这笔金额写成协议里的一行 `display_result`。不打开串口 |
+| `host/scale_host/reply_record.py` | 把这笔金额写入临时数据库，并核对它和显示行相同 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -118,6 +119,7 @@ vision: disabled
 | `scripts/run_parse_response.ps1` | 解析回环应答。视觉里的价格丢掉，文本里的单价保留 |
 | `scripts/run_reply_sale.ps1` | 用解析后的文本单价给 326.4 克算出 3.92 元。不联网 |
 | `scripts/run_display_line.ps1` | 打印单片机要显示的那一行 JSON。不打开 COM |
+| `scripts/run_reply_record.ps1` | 把 3.92 元写入临时数据库，并核对显示行是同一个数 |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -137,6 +139,7 @@ vision: disabled
 | `tests/unit/test_response_parse.py` | 视觉应答里的 999 不进入结果，文本应答的 12 元保留 |
 | `tests/unit/test_reply_sale.py` | 视觉应答里的 999 不改变金额，326.4 克仍是 3.92 元 |
 | `tests/unit/test_display_line.py` | 显示行是香蕉、326.4 克、3.92 元，正文里没有 999 |
+| `tests/unit/test_reply_record.py` | 库里的 3.92 元和显示行相同，正文里没有 999 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
