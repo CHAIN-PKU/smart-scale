@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.3 解析应答**已完成。视觉应答里的价格会被丢掉，单价只从文本应答读取。这是回环里的测试数据，不是上网查到的。5.2 已提交为 `77b6b6d`。
+当前进度：**TODO 5.4 用应答算金额**已完成。稳定的 326.4 克乘文本应答里的每千克 12 元，得到 3.92 元。视觉应答里的 999 元不参与。不访问外网。5.3 已提交为 `64e05dd`。
 
 顺序写在 `docs/todo.md`。
 
@@ -95,6 +95,7 @@ vision: disabled
 | `host/scale_host/cloud_request.py` | 写出认物品和查单价两个请求。不包含 key，也不发送 |
 | `host/scale_host/loopback.py` | 把这两份请求交给进程内回环。不打开网络 |
 | `host/scale_host/response_parse.py` | 把回环 JSON 变成识别结果和单价。视觉回复里的价格不采用 |
+| `host/scale_host/reply_sale.py` | 用文本应答里的单价给稳定重量算金额。视觉应答里的价格不参与 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -114,6 +115,7 @@ vision: disabled
 | `scripts/run_request_preview.ps1` | 打印两个云请求的内容。不联网 |
 | `scripts/run_loopback.ps1` | 把两份请求交给本机回环，并标明没有发到外网 |
 | `scripts/run_parse_response.ps1` | 解析回环应答。视觉里的价格丢掉，文本里的单价保留 |
+| `scripts/run_reply_sale.ps1` | 用解析后的文本单价给 326.4 克算出 3.92 元。不联网 |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -131,6 +133,7 @@ vision: disabled
 | `tests/unit/test_cloud_request.py` | 视觉请求不查价，文本请求不看图片，输出里没有 key |
 | `tests/unit/test_loopback.py` | 回环收到两份请求。拦截网络调用后仍然成功 |
 | `tests/unit/test_response_parse.py` | 视觉应答里的 999 不进入结果，文本应答的 12 元保留 |
+| `tests/unit/test_reply_sale.py` | 视觉应答里的 999 不改变金额，326.4 克仍是 3.92 元 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
