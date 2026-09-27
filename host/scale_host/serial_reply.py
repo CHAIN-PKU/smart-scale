@@ -28,10 +28,13 @@ _PRICE_REPLY = {
 async def price_scripted_replies(
     port: ScriptedPort,
     repository: SqliteRepository,
-) -> tuple[WeighingSession, float]:
+    *,
+    session_id: str = SERIAL_REPLY_SESSION_ID,
+) -> tuple[WeighingSession, float, int]:
     device = SerialScaleDevice(port)
     await device.connect()
     reading: WeightReading | None = None
+    skipped = 0
     try:
         async for event in device.events():
             if not isinstance(event, WeightReading):
@@ -43,6 +46,7 @@ async def price_scripted_replies(
                 and event.weight_g > 0
             )
             if not ready:
+                skipped += 1
                 continue
             reading = event
             break
@@ -54,15 +58,15 @@ async def price_scripted_replies(
         )
         session = session_from_sale(
             sale,
-            session_id=SERIAL_REPLY_SESSION_ID,
+            session_id=session_id,
             timestamp=DEMO_TIMESTAMP,
         )
         repository.save_session(session)
-        stored = repository.get_session(SERIAL_REPLY_SESSION_ID)
+        stored = repository.get_session(session_id)
         if stored is None or stored.amount_yuan is None:
             raise RuntimeError("sale was not stored")
         shown = json.loads(port.outgoing[-1].decode("utf-8"))["price"]
-        return stored, float(shown)
+        return stored, float(shown), skipped
     finally:
         await device.disconnect()
 
@@ -71,7 +75,7 @@ def main() -> None:
     port = ScriptedPort(BANANA_LINES)
     with tempfile.TemporaryDirectory() as folder:
         repository = SqliteRepository(Path(folder) / "scale.db")
-        stored, display_price = asyncio.run(price_scripted_replies(port, repository))
+        stored, display_price, _skipped = asyncio.run(price_scripted_replies(port, repository))
     same = stored.amount_yuan == display_price
     print(f"weight_g: {stored.weight_g}")
     print(f"display_price: {display_price:.2f}")
