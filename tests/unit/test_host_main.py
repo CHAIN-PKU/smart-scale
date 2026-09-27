@@ -47,3 +47,31 @@ def test_startup_prints_the_stored_banana_sale(capsys, monkeypatch, tmp_path) ->
     stored = SqliteRepository(tmp_path / "scale.db").get_session(lines[8].split(": ", 1)[1])
     assert stored is not None
     assert stored.amount_yuan == 3.92
+
+
+def test_serial_without_a_port_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv("SCALE_DEVICE", "serial")
+    monkeypatch.setenv("SERIAL_PORT", "")
+    monkeypatch.setenv("VISION_PROVIDER", "mock")
+    try:
+        main()
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("expected SystemExit")
+
+
+def test_serial_with_a_port_does_not_run_the_simulator_sale(capsys, monkeypatch) -> None:
+    monkeypatch.setenv("SCALE_DEVICE", "serial")
+    monkeypatch.setenv("SERIAL_PORT", "COM3")
+    monkeypatch.setenv("VISION_PROVIDER", "mock")
+    monkeypatch.setenv("PRODUCT_INFO_PROVIDER", "mock")
+    main()
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == [
+        "Smart Scale Host",
+        "device: serial",
+        "vision: mock",
+        "product_info: mock",
+        "serial_port: COM3",
+    ]

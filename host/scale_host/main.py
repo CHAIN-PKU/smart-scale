@@ -36,10 +36,16 @@ def main() -> None:
     os.environ["SCALE_DEVICE"] = device_name
     os.environ["VISION_PROVIDER"] = vision_name
     os.environ["PRODUCT_INFO_PROVIDER"] = product_info_name
+    if device_name == "serial" and not os.getenv("SERIAL_PORT", "").strip():
+        print("missing serial port", file=sys.stderr)
+        raise SystemExit(2)
     print("Smart Scale Host")
     print(f"device: {device_name}")
     print(f"vision: {vision_name}")
     print(f"product_info: {product_info_name}")
+    if device_name == "serial":
+        print(f"serial_port: {os.getenv('SERIAL_PORT', '').strip()}")
+        return
     if device_name == "simulator" and vision_name != "disabled" and product_info_name != "disabled":
         _print_recorded_sale()
 
