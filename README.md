@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 0.2 项目虚拟环境**。协议、模拟器、主机程序都还没写。
+当前进度：**TODO 0.3 协议 V1**。状态机、模拟器、主机程序都还没写。
 
 ## 目录
 
@@ -21,9 +21,11 @@
 依赖只装在项目虚拟环境里，不装进全局 Python。
 
 ```powershell
-C:\stm32\projects\smart-scale\scripts\setup.ps1
+C:/stm32/projects/smart-scale/scripts/setup.ps1
 ```
 
-解释器是 `C:\stm32\projects\smart-scale\.venv\Scripts\python.exe`。
+解释器是 `C:/stm32/projects/smart-scale/.venv/Scripts/python.exe`。
+
+STM32 和 PC 的报文以 `docs/protocol.md` 为准。
 
 主机入口还没写，所以这一步仍然不能 `python -m scale_host`。
