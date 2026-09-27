@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 2.2 两个模型的空位**已完成。多模态模型只认物品，另一个文本模型再查单价。本地不保存全部商品价格。2.1 的称重记录一并提交。
+当前进度：**TODO 2.3 模拟视觉和模拟查价**已完成。占位图 `banana.jpg` 会先被认成香蕉，再查出每千克 12 元。2.1 和 2.2 在 `c652a06`。
 
 顺序写在 `docs/todo.md`。
 
@@ -83,6 +83,7 @@ vision: disabled
 | `host/scale_host/vision/interface.py` | 视觉接口。mock 固定认香蕉；MiniMax 和火山引擎只留空位，不发请求 |
 | `host/scale_host/vision/__init__.py` | 导出视觉类型 |
 | `host/scale_host/catalog/lookup.py` | 文本查价接口。mock 返回测试单价；真模型没 key 就失败，有占位 key 也不联网 |
+| `host/scale_host/quote.py` | 先识别，再按名称查单价。模拟路径打印香蕉和每千克 12 元 |
 | `host/scale_host/catalog/__init__.py` | 导出查价类型 |
 | `host/scale_host/fusion/.gitkeep` | 重量和视觉的融合以后放这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状 |
@@ -94,6 +95,7 @@ vision: disabled
 | `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
 | `scripts/run_host.ps1` | 启动主机 |
 | `scripts/run_simulator.ps1` | 播放场景，默认香蕉 |
+| `scripts/run_quote.ps1` | 用模拟识别和模拟查价打出香蕉单价。不联网 |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -105,6 +107,7 @@ vision: disabled
 | `tests/unit/test_simulator.py` | 假秤场景 |
 | `tests/unit/test_host_main.py` | 启动时打印设备、视觉和查价三行开关 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
+| `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_simulator_cli.py` | 香蕉场景命令打出的克数 |
 | `tests/unit/test_dynamics.py` | 连续半秒几乎不动才算稳定；波动超过 0.5 克不算 |
 | `tests/unit/test_sqlite_repository.py` | 称重和纠错能写入数据库再读回 |
