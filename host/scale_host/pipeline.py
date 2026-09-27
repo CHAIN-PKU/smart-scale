@@ -56,21 +56,26 @@ async def price_open_port(
     *,
     session_id: str,
     timestamp: str,
-) -> WeighingSession:
+) -> tuple[WeighingSession, int]:
     device = SerialScaleDevice(port)
     await device.connect()
     reading: WeightReading | None = None
+    skipped = 0
     try:
         async for event in device.events():
-            if (
-                isinstance(event, WeightReading)
-                and event.state is ScaleStatus.WEIGHT_STABLE
+            if not isinstance(event, WeightReading):
+                continue
+            ready = (
+                event.state is ScaleStatus.WEIGHT_STABLE
                 and event.stable
                 and event.status == "ok"
                 and event.weight_g > 0
-            ):
-                reading = event
-                break
+            )
+            if not ready:
+                skipped += 1
+                continue
+            reading = event
+            break
         if reading is None:
             raise RuntimeError("no stable weight")
         quote = identify_and_price(DEMO_IMAGE, build_vision(), build_product_info())
@@ -80,7 +85,7 @@ async def price_open_port(
         )
         session = session_from_sale(sale, session_id=session_id, timestamp=timestamp)
         repository.save_session(session)
-        return session
+        return session, skipped
     finally:
         await device.disconnect()
 
