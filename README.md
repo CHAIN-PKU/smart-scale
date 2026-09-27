@@ -2,7 +2,9 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 1.6 日常测试**已验收。不插板子时日常测试全绿。真板测试要单独点名才会跑。
+当前进度：**TODO 2.2 两个模型的空位**已完成。多模态模型只认物品，另一个文本模型再查单价。本地不保存全部商品价格。2.1 的称重记录一并提交。
+
+顺序写在 `docs/todo.md`。
 
 这台电脑默认禁止直接运行 `.ps1`。请用：
 
@@ -11,6 +13,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\stm32\projects\smart-scal
 ```
 
 报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 随每个已验收步骤追加进度和文件说明。
+
+识别分两步，都可以换实现，现在都不联网：
+
+1. `VISION_PROVIDER` 选 `minimax` 或 `volcano`，只回答物品名称。
+2. `PRODUCT_INFO_PROVIDER=text` 用更小的纯文本模型查单价和简介。
+3. 没有 key 时明确失败。key 以后写在本机 `.env`，样例在 `.env.example`，仓库里不放真 key。
+4. SQLite 只存每次称重和纠错，不是商品总价表。
 
 ## 本地环境
 
@@ -38,19 +47,20 @@ vision: disabled
 | `host/scale_host/` | PC 主机代码 |
 | `simulator/` | 场景播放命令。称重规则仍在主机的模拟器里 |
 | `tests/` | 日常测试不依赖真 STM32。真板测试只放 `tests/hardware/` |
-| `data/` | 商品表和测试图片，现在是空位 |
+| `data/` | 测试图片空位。不放全量商品单价 |
 | `scripts/` | Windows 脚本：安装环境、启动主机、播放场景、跑测试 |
 
 ## 每个文件
 
 | 文件 | 说明 |
 |---|---|
-| `.env.example` | 开关样例：设备用模拟器还是串口，视觉开不开，数据库文件放哪 |
+| `.env.example` | 开关样例。含 MiniMax、火山引擎和文本查价模型的 key 空位，值都是空的 |
 | `.gitignore` | 不提交虚拟环境、`.env`、数据库和 Keil 编译产物 |
 | `pyproject.toml` | 项目名称和依赖。日常 pytest 自动排除带 hardware 标记的测试 |
 | `docs/protocol.md` | V1 通信协议。一行一个 JSON，串口 115200 8N1 |
 | `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
 | `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
+| `docs/todo.md` | 调整后的开发顺序。价格不进本地总表 |
 | `docs/adr/.gitkeep` | 以后放架构决定记录。现在是空位 |
 | `firmware/README.md` | 说明固件还没写，F103 和 F107 不能混用 |
 | `firmware/Core/.gitkeep` | Cube 生成的核心代码以后放这里 |
@@ -60,7 +70,8 @@ vision: disabled
 | `firmware/App/state_machine/.gitkeep` | 固件侧状态机以后放这里 |
 | `host/scale_host/__init__.py` | 包版本号 |
 | `host/scale_host/__main__.py` | 让 `python -m scale_host` 能启动 |
-| `host/scale_host/main.py` | 读环境变量并打印设备名和视觉开关 |
+| `host/scale_host/main.py` | 读环境变量并打印设备、视觉和查价三个开关 |
+| `host/scale_host/providers.py` | 没 key，或 key 还没接到网络时，抛出的两种错误 |
 | `host/scale_host/protocol/messages.py` | 把一行 JSON 变成消息，坏行拒绝 |
 | `host/scale_host/protocol/__init__.py` | 导出协议类型 |
 | `host/scale_host/domain/models.py` | 程序内部的重量、状态、去皮命令，以及视觉和融合的空数据表 |
@@ -69,9 +80,15 @@ vision: disabled
 | `host/scale_host/device/dynamics.py` | 按状态机把克数变成稳定、拿走、过载 |
 | `host/scale_host/device/simulator.py` | 假秤。香蕉、噪声、拿走、过载、断开 |
 | `host/scale_host/device/__init__.py` | 导出设备接口和假秤 |
-| `host/scale_host/vision/.gitkeep` | 视觉实现以后放这里。现在关闭 |
+| `host/scale_host/vision/interface.py` | 视觉接口。mock 固定认香蕉；MiniMax 和火山引擎只留空位，不发请求 |
+| `host/scale_host/vision/__init__.py` | 导出视觉类型 |
+| `host/scale_host/catalog/lookup.py` | 文本查价接口。mock 返回测试单价；真模型没 key 就失败，有占位 key 也不联网 |
+| `host/scale_host/catalog/__init__.py` | 导出查价类型 |
 | `host/scale_host/fusion/.gitkeep` | 重量和视觉的融合以后放这里 |
-| `host/scale_host/storage/.gitkeep` | 数据库以后放这里 |
+| `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状 |
+| `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
+| `host/scale_host/storage/sqlite.py` | 用 Python 自带的 SQLite 存称重和纠错。`products` 表只是以后可选的缓存，不是价格来源 |
+| `host/scale_host/storage/__init__.py` | 导出存储类型 |
 | `host/scale_host/agent/tools/.gitkeep` | 给助手调用的工具以后放这里。助手还没做 |
 | `host/scale_host/ui/.gitkeep` | 界面以后放这里。现在只有控制台 |
 | `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
@@ -81,14 +98,16 @@ vision: disabled
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
 | `simulator/scenarios/.gitkeep` | 以后放场景数据文件。现在的场景写在代码里 |
-| `data/products/.gitkeep` | 商品表空位 |
+| `data/products/.gitkeep` | 不再作为全量单价表。目录先留着 |
 | `data/test_images/.gitkeep` | 测试图片空位 |
 | `tests/unit/test_protocol_messages.py` | 协议合法行和坏行 |
 | `tests/unit/test_domain_models.py` | 内部数据的形状 |
 | `tests/unit/test_simulator.py` | 假秤场景 |
-| `tests/unit/test_host_main.py` | 启动时打印的三行字 |
+| `tests/unit/test_host_main.py` | 启动时打印设备、视觉和查价三行开关 |
+| `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_simulator_cli.py` | 香蕉场景命令打出的克数 |
 | `tests/unit/test_dynamics.py` | 连续半秒几乎不动才算稳定；波动超过 0.5 克不算 |
+| `tests/unit/test_sqlite_repository.py` | 称重和纠错能写入数据库再读回 |
 | `tests/unit/.gitkeep` | 保留单元测试目录 |
 | `tests/integration/.gitkeep` | 集成测试空位 |
 | `tests/hardware/test_board_optional.py` | 真板测试占位。日常运行会跳过它 |
