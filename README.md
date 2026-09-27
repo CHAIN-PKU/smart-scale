@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.11 去皮应答**已完成。电脑按协议写出去皮命令，假串口回成功，下一行净重是 0 克、状态是 `ZERO`，去皮偏移是 12.7 克。不打开真实 COM，也不访问外网。5.10 已提交为 `d570136`。
+当前进度：**TODO 5.12 过载时拒绝去皮**已完成。秤处于 `OVERLOAD` 时，去皮应答是失败，状态保持过载，偏移仍是 12.7 克，不会被清成 0。不打开真实 COM，也不访问外网。5.11 已提交为 `c9fee13`。
 
 顺序写在 `docs/todo.md`。
 
@@ -103,6 +103,7 @@ vision: disabled
 | `host/scale_host/overload_guard.py` | 假串口报过载时不计价，也不写显示行。不打开真实 COM |
 | `host/scale_host/removed_guard.py` | 假串口报东西被拿走时不计价，也不写显示行。不打开真实 COM |
 | `host/scale_host/tare_roundtrip.py` | 向假串口发去皮，读回成功应答和清零后的 0 克。不打开真实 COM |
+| `host/scale_host/tare_rejected.py` | 过载时去皮失败，偏移保持不变。不打开真实 COM |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -130,6 +131,7 @@ vision: disabled
 | `scripts/run_overload_guard.ps1` | 重放过载状态，确认电脑不回显示行。不打开 COM |
 | `scripts/run_removed_guard.ps1` | 重放拿走状态，确认 0.4 克也不回显示行。不打开 COM |
 | `scripts/run_tare_roundtrip.ps1` | 重放一次去皮：命令、成功应答、然后是 0 克。不打开 COM |
+| `scripts/run_tare_rejected.ps1` | 重放过载中的去皮：应答失败，偏移仍是 12.7 克。不打开 COM |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -155,6 +157,7 @@ vision: disabled
 | `tests/unit/test_overload_guard.py` | 过载时不写显示行，也不调用计价 |
 | `tests/unit/test_removed_guard.py` | 拿走后不写显示行，0.4 克且稳定也不计价 |
 | `tests/unit/test_tare_roundtrip.py` | 去皮命令发出后，应答成功，下一行净重是 0 克 |
+| `tests/unit/test_tare_rejected.py` | 过载时去皮失败，状态和 12.7 克偏移都不变 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
