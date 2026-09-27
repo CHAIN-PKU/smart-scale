@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.8 连续重量只给稳定行计价**已完成。假串口先跳过 5 次还在变化的重量，稳定的 326.4 克才是 3.92 元。视觉应答里的 999 元不参与。不打开真实 COM，也不访问外网。5.7 已提交为 `2a6fa6d`。
+当前进度：**TODO 5.9 过载不显示价格**已完成。假串口报来 `OVERLOAD` 时，电脑不回显示行，也不计价。过载阈值仍由单片机按量程判断，电脑不另算一条线。不打开真实 COM，也不访问外网。5.8 已提交为 `e064009`。
 
 顺序写在 `docs/todo.md`。
 
@@ -100,6 +100,7 @@ vision: disabled
 | `host/scale_host/reply_record.py` | 把这笔金额写入临时数据库，并核对它和显示行相同 |
 | `host/scale_host/serial_reply.py` | 假串口上的稳定重量用文本应答计价，并写回显示行。不打开真实 COM |
 | `host/scale_host/serial_reply_sequence.py` | 假串口上先跳过还在变化的克数，稳定后才用文本应答计价 |
+| `host/scale_host/overload_guard.py` | 假串口报过载时不计价，也不写显示行。不打开真实 COM |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -124,6 +125,7 @@ vision: disabled
 | `scripts/run_reply_record.ps1` | 把 3.92 元写入临时数据库，并核对显示行是同一个数 |
 | `scripts/run_serial_reply.ps1` | 重放一行稳定重量，用文本应答计价后写回显示。不打开 COM |
 | `scripts/run_serial_reply_sequence.ps1` | 重放从 0 克到 326.4 克，只给稳定重量走应答计价 |
+| `scripts/run_overload_guard.ps1` | 重放过载状态，确认电脑不回显示行。不打开 COM |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -146,6 +148,7 @@ vision: disabled
 | `tests/unit/test_reply_record.py` | 库里的 3.92 元和显示行相同，正文里没有 999 |
 | `tests/unit/test_serial_reply.py` | 假串口的 326.4 克写成 3.92 元显示行，且没有打开 COM |
 | `tests/unit/test_serial_reply_sequence.py` | 前 5 次重量被跳过，稳定的 326.4 克才是 3.92 元 |
+| `tests/unit/test_overload_guard.py` | 过载时不写显示行，也不调用计价 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
