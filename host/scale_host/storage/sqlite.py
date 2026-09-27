@@ -14,14 +14,16 @@ class SqliteRepository:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.executescript(_SCHEMA)
+            _ensure_sale_columns(connection)
 
     def save_session(self, session: WeighingSession) -> None:
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO weighing_sessions (
-                    id, timestamp, weight_g, image_path, product_id, confidence, model_name
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    id, timestamp, weight_g, image_path, product_id, confidence, model_name,
+                    label, price_per_kg, amount_yuan
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session.id,
@@ -31,6 +33,9 @@ class SqliteRepository:
                     session.product_id,
                     session.confidence,
                     session.model_name,
+                    session.label,
+                    session.price_per_kg,
+                    session.amount_yuan,
                 ),
             )
 
@@ -38,7 +43,8 @@ class SqliteRepository:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name
+                SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name,
+                       label, price_per_kg, amount_yuan
                 FROM weighing_sessions WHERE id = ?
                 """,
                 (session_id,),
@@ -53,6 +59,9 @@ class SqliteRepository:
             product_id=row[4],
             confidence=row[5],
             model_name=row[6],
+            label=row[7],
+            price_per_kg=row[8],
+            amount_yuan=row[9],
         )
 
     def add_correction(
@@ -129,6 +138,13 @@ class SqliteRepository:
         return connection
 
 
+def _ensure_sale_columns(connection: sqlite3.Connection) -> None:
+    present = {row[1] for row in connection.execute("PRAGMA table_info(weighing_sessions)")}
+    for name, kind in (("label", "TEXT"), ("price_per_kg", "REAL"), ("amount_yuan", "REAL")):
+        if name not in present:
+            connection.execute(f"ALTER TABLE weighing_sessions ADD COLUMN {name} {kind}")
+
+
 _SCHEMA = """
 -- Optional cache only. Prices come from the text model, not from a full local catalog.
 CREATE TABLE IF NOT EXISTS products (
@@ -147,6 +163,9 @@ CREATE TABLE IF NOT EXISTS weighing_sessions (
     product_id TEXT,
     confidence REAL,
     model_name TEXT,
+    label TEXT,
+    price_per_kg REAL,
+    amount_yuan REAL,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 

@@ -16,6 +16,9 @@ class WeighingSession(BaseModel):
     product_id: str | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     model_name: str | None = None
+    label: str | None = None
+    price_per_kg: float | None = Field(default=None, ge=0)
+    amount_yuan: float | None = Field(default=None, ge=0)
 
 
 class CorrectionRecord(BaseModel):

@@ -22,6 +22,7 @@ class Sale(BaseModel):
     amount_yuan: float = Field(ge=0)
     vision_source: str = Field(min_length=1)
     info_source: str = Field(min_length=1)
+    image_path: str = Field(min_length=1)
 
 
 def yuan_amount(weight_g: float, price_per_kg: float) -> float:
@@ -48,4 +49,5 @@ def fuse(reading: WeightReading, quote: ItemQuote) -> Sale:
         amount_yuan=yuan_amount(reading.weight_g, quote.price_per_kg),
         vision_source=quote.vision_source,
         info_source=quote.info_source,
+        image_path=quote.image_path,
     )

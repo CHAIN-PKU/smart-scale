@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 2.4 融合**已完成。假秤上的香蕉稳定在 326.4 克，乘每千克 12 元，金额是 3.92 元。重量还在变化、过载或空秤时不算钱。2.3 在 `deb4679`。
+当前进度：**TODO 2.5 集成记录**已完成。假秤、模拟识别、模拟查价和融合串起来之后，香蕉的 326.4 克和 3.92 元会写入 SQLite，再读出来。2.4 在 `b78beb2`。
 
 顺序写在 `docs/todo.md`。
 
@@ -88,9 +88,10 @@ vision: disabled
 | `host/scale_host/fusion/price.py` | 稳定重量乘单价，四舍五入到分。未稳定、过载或空秤会拒绝 |
 | `host/scale_host/fusion/__init__.py` | 导出金额计算 |
 | `host/scale_host/sale.py` | 假秤香蕉稳定后，接上模拟识别和模拟单价，打印 3.92 元 |
-| `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状 |
+| `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印 |
+| `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
-| `host/scale_host/storage/sqlite.py` | 用 Python 自带的 SQLite 存称重和纠错。`products` 表只是以后可选的缓存，不是价格来源 |
+| `host/scale_host/storage/sqlite.py` | 用 Python 自带的 SQLite 存称重、纠错，以及这次的名称、单价和金额。`products` 表只是以后可选的缓存，不是价格来源 |
 | `host/scale_host/storage/__init__.py` | 导出存储类型 |
 | `host/scale_host/agent/tools/.gitkeep` | 给助手调用的工具以后放这里。助手还没做 |
 | `host/scale_host/ui/.gitkeep` | 界面以后放这里。现在只有控制台 |
@@ -99,6 +100,7 @@ vision: disabled
 | `scripts/run_simulator.ps1` | 播放场景，默认香蕉 |
 | `scripts/run_quote.ps1` | 用模拟识别和模拟查价打出香蕉单价。不联网 |
 | `scripts/run_sale.ps1` | 用假秤的稳定重量算出香蕉金额 3.92 元 |
+| `scripts/run_record.ps1` | 把这次香蕉金额写入临时数据库，再打印读回的那一行 |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -116,5 +118,6 @@ vision: disabled
 | `tests/unit/test_dynamics.py` | 连续半秒几乎不动才算稳定；波动超过 0.5 克不算 |
 | `tests/unit/test_sqlite_repository.py` | 称重和纠错能写入数据库再读回 |
 | `tests/unit/.gitkeep` | 保留单元测试目录 |
-| `tests/integration/.gitkeep` | 集成测试空位 |
+| `tests/integration/.gitkeep` | 保留集成测试目录 |
+| `tests/integration/test_banana_pipeline.py` | 假秤到数据库的整条香蕉记录，读回 3.92 元 |
 | `tests/hardware/test_board_optional.py` | 真板测试占位。日常运行会跳过它 |
