@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 1.4 主机入口**已验收。默认启动只打印模拟器和视觉开关，还不读取重量。
+当前进度：**TODO 1.5 场景命令**已验收。`python -m scale_host` 仍只打印开关；`python -m simulator --scenario banana` 会打印称重过程。
 
 报文以 `docs/protocol.md` 为准，状态切换以 `docs/state-machine.md` 为准。`docs/hardware-handoff.docx` 随每个已验收步骤追加进度和文件说明。
 
@@ -30,10 +30,10 @@ vision: disabled
 | `docs/` | 协议、状态机、给硬件同学的进度说明 |
 | `firmware/` | STM32 固件。还是空位，阶段 4 再写 |
 | `host/scale_host/` | PC 主机代码 |
-| `simulator/` | 预留给场景数据。称重演放目前写在主机的模拟器里 |
+| `simulator/` | 场景播放命令。称重规则仍在主机的模拟器里 |
 | `tests/` | 日常测试不依赖真 STM32。真板测试只放 `tests/hardware/` |
 | `data/` | 商品表和测试图片，现在是空位 |
-| `scripts/` | Windows 脚本。目前只有安装虚拟环境 |
+| `scripts/` | Windows 脚本：安装环境、启动主机、播放场景、跑测试 |
 
 ## 每个文件
 
@@ -69,13 +69,19 @@ vision: disabled
 | `host/scale_host/agent/tools/.gitkeep` | 给助手调用的工具以后放这里。助手还没做 |
 | `host/scale_host/ui/.gitkeep` | 界面以后放这里。现在只有控制台 |
 | `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
-| `simulator/scenarios/.gitkeep` | 场景数据文件的空位。场景逻辑目前在 `device/simulator.py` |
+| `scripts/run_host.ps1` | 启动主机 |
+| `scripts/run_simulator.ps1` | 播放场景，默认香蕉 |
+| `scripts/test.ps1` | 运行不依赖真板的测试 |
+| `simulator/__init__.py` | 场景命令的包 |
+| `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
+| `simulator/scenarios/.gitkeep` | 以后放场景数据文件。现在的场景写在代码里 |
 | `data/products/.gitkeep` | 商品表空位 |
 | `data/test_images/.gitkeep` | 测试图片空位 |
 | `tests/unit/test_protocol_messages.py` | 协议合法行和坏行 |
 | `tests/unit/test_domain_models.py` | 内部数据的形状 |
 | `tests/unit/test_simulator.py` | 假秤场景 |
 | `tests/unit/test_host_main.py` | 启动时打印的三行字 |
+| `tests/unit/test_simulator_cli.py` | 香蕉场景命令打出的克数 |
 | `tests/unit/.gitkeep` | 保留单元测试目录 |
 | `tests/integration/.gitkeep` | 集成测试空位 |
 | `tests/hardware/.gitkeep` | 真板测试空位。日常 pytest 不依赖它 |

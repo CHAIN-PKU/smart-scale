@@ -21,8 +21,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["host"]
-include = ["scale_host*"]
+where = [".", "host"]
+include = ["simulator*", "scale_host*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
