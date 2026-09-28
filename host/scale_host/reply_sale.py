@@ -26,6 +26,13 @@ _STABLE = WeightReading(
 )
 
 
+class LabelMismatch(RuntimeError):
+    def __init__(self, vision_label: str, text_label: str) -> None:
+        self.vision_label = vision_label
+        self.text_label = text_label
+        super().__init__("label mismatch")
+
+
 def sale_from_replies(
     identify_payload: dict[str, object],
     price_payload: dict[str, object],
@@ -34,6 +41,8 @@ def sale_from_replies(
 ) -> Sale:
     recognition = parse_identify(identify_payload, image_path)
     info = parse_price(price_payload)
+    if info.label != recognition.label:
+        raise LabelMismatch(recognition.label, info.label)
     if info.price_per_kg is None:
         raise RuntimeError(f"no unit price for {recognition.label}")
     quote = ItemQuote(
