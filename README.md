@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.17 未知字段不影响计价**已完成。稳定重量行里多一个 `note` 字段，电脑仍回 3.92 元，这个字段不会出现在显示行里。不打开真实 COM，也不访问外网。5.16 已提交为 `7d18cd8`。
+当前进度：**TODO 5.18 传感器故障不显示价格**已完成。假串口报来 `ERROR` 时，电脑不回显示行，也不计价。这和过载不是同一件事：过载是超了量程，故障是大约一秒读不到 HX711。不打开真实 COM，也不访问外网。5.17 已提交为 `8383820`。
 
 顺序写在 `docs/todo.md`。
 
@@ -109,6 +109,7 @@ vision: disabled
 | `host/scale_host/serial_label_guard.py` | 假串口上的稳定重量遇上名字不一致时，也不写显示行 |
 | `host/scale_host/bad_line.py` | 丢掉一行不是 JSON 的报文，后面的稳定重量仍然计价 |
 | `host/scale_host/extra_field.py` | 重量行里多一个未知字段时仍然计价，该字段不进入显示行 |
+| `host/scale_host/error_guard.py` | 假串口报传感器故障时不计价，也不写显示行。不打开真实 COM |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -142,6 +143,7 @@ vision: disabled
 | `scripts/run_serial_label_guard.ps1` | 稳定的 326.4 克遇上香蕉和苹果不一致，确认不回显示。不打开 COM |
 | `scripts/run_bad_line.ps1` | 丢掉一行裸数字，再给后面的稳定重量回 3.92 元。不打开 COM |
 | `scripts/run_extra_field.ps1` | 重量行多一个未知字段，仍回 3.92 元。不打开 COM |
+| `scripts/run_error_guard.ps1` | 重放传感器故障，确认电脑不回显示行。不打开 COM |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -173,6 +175,7 @@ vision: disabled
 | `tests/unit/test_serial_label_guard.py` | 稳定的 326.4 克遇上名字不一致时不写显示行 |
 | `tests/unit/test_bad_line.py` | 裸数字被丢掉，后面的 326.4 克仍是 3.92 元 |
 | `tests/unit/test_extra_field.py` | 未知字段被忽略，显示行里没有它，金额仍是 3.92 元 |
+| `tests/unit/test_error_guard.py` | 传感器故障时不写显示行，也不调用计价 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
