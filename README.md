@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：**TODO 5.19 上电时拒绝去皮**已完成。秤还在 `BOOT`、传感器还不能读时，去皮应答是失败，状态保持 `BOOT`，偏移仍是 0。上电不会自动去皮。不打开真实 COM，也不访问外网。5.18 已提交为 `6ff8350`。
+当前进度：**TODO 5.20 故障之后仍计价**已完成。假串口先报 `ERROR`，这一行被跳过；故障消失后稳定的 326.4 克仍然回 3.92 元。不打开真实 COM，也不访问外网。5.19 已提交为 `738969e`。
 
 顺序写在 `docs/todo.md`。
 
@@ -111,6 +111,7 @@ vision: disabled
 | `host/scale_host/extra_field.py` | 重量行里多一个未知字段时仍然计价，该字段不进入显示行 |
 | `host/scale_host/error_guard.py` | 假串口报传感器故障时不计价，也不写显示行。不打开真实 COM |
 | `host/scale_host/boot_tare.py` | 刚上电时去皮失败，状态保持 BOOT，偏移仍是 0。不打开真实 COM |
+| `host/scale_host/error_then_stable.py` | 传感器故障那一行跳过，后面的稳定重量仍然计价 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
 | `host/scale_host/storage/repository.py` | 存储接口。以后可以换数据库，调用方不用改 |
@@ -146,6 +147,7 @@ vision: disabled
 | `scripts/run_extra_field.ps1` | 重量行多一个未知字段，仍回 3.92 元。不打开 COM |
 | `scripts/run_error_guard.ps1` | 重放传感器故障，确认电脑不回显示行。不打开 COM |
 | `scripts/run_boot_tare.ps1` | 重放上电中的去皮：应答失败，状态仍是 BOOT。不打开 COM |
+| `scripts/run_error_then_stable.ps1` | 先跳过故障行，再给后面的稳定重量回 3.92 元。不打开 COM |
 | `scripts/test.ps1` | 运行不依赖真板的测试。直接双击会被系统拦住，要用 ExecutionPolicy Bypass 调用 |
 | `simulator/__init__.py` | 场景命令的包 |
 | `simulator/__main__.py` | `python -m simulator --scenario banana` 的入口 |
@@ -179,6 +181,7 @@ vision: disabled
 | `tests/unit/test_extra_field.py` | 未知字段被忽略，显示行里没有它，金额仍是 3.92 元 |
 | `tests/unit/test_error_guard.py` | 传感器故障时不写显示行，也不调用计价 |
 | `tests/unit/test_boot_tare.py` | 上电时去皮失败，状态保持 BOOT，偏移仍是 0 |
+| `tests/unit/test_error_then_stable.py` | 故障行被跳过，后面的 326.4 克仍是 3.92 元 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
 | `tests/unit/test_fusion.py` | 326.4 克乘 12 元/千克等于 3.92 元；不稳定时拒绝 |
