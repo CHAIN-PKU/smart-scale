@@ -7,11 +7,14 @@ from scale_host.vision.interface import (
     VolcanoVision,
     build_vision,
 )
+from scale_host.vision.siliconflow import SiliconFlowVision, label_from_reply
 
 __all__ = [
     "MiniMaxVision",
     "MockVision",
+    "SiliconFlowVision",
     "VisionProvider",
     "VolcanoVision",
     "build_vision",
+    "label_from_reply",
 ]

@@ -7,6 +7,7 @@ from typing import Protocol
 
 from scale_host.domain import ProductRecognition
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
+from scale_host.vision.siliconflow import SiliconFlowVision
 
 
 class VisionProvider(Protocol):
@@ -78,4 +79,6 @@ def build_vision(name: str | None = None) -> VisionProvider:
         return MiniMaxVision()
     if selected == "volcano":
         return VolcanoVision()
+    if selected == "siliconflow":
+        return SiliconFlowVision()
     raise ValueError(f"unknown vision provider: {selected}")

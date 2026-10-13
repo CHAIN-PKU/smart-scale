@@ -1,4 +1,4 @@
-"""Product facts and price. A text model looks these up after recognition."""
+"""Product facts and price. The demo table looks these up by name after recognition."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ class ProductInfo(BaseModel):
     model_config = _MODEL_CONFIG
     label: str = Field(min_length=1)
     price_per_kg: float | None = Field(default=None, ge=0)
+    kcal_per_100g: float | None = Field(default=None, ge=0)
+    carb_per_100g: float | None = Field(default=None, ge=0)
     summary: str = ""
     source: str = Field(min_length=1)
 
@@ -46,6 +48,38 @@ class MockProductInfo:
         )
 
 
+# Banana price stays the project demo, 12 yuan per kilogram.
+# Energy and carbohydrate are per 100 g, for multiplying by the scale weight later.
+_DEMO_FOODS: dict[str, dict[str, float | str]] = {
+    "banana": {
+        "label": "banana",
+        "price_per_kg": 12.0,
+        "kcal_per_100g": 91.0,
+        "carb_per_100g": 22.0,
+    },
+}
+_DEMO_FOODS["香蕉"] = _DEMO_FOODS["banana"]
+
+
+class TableProductInfo:
+    """A few demo foods. Lookup uses the name only."""
+
+    name = "table"
+
+    def lookup(self, label: str) -> ProductInfo:
+        row = _DEMO_FOODS.get(label.strip().casefold()) or _DEMO_FOODS.get(label.strip())
+        if row is None:
+            raise KeyError(label)
+        return ProductInfo(
+            label=str(row["label"]),
+            price_per_kg=float(row["price_per_kg"]),
+            kcal_per_100g=float(row["kcal_per_100g"]),
+            carb_per_100g=float(row["carb_per_100g"]),
+            summary="demo standard per kilogram and per 100 g",
+            source="table",
+        )
+
+
 class TextModelProductInfo:
     name = "text"
 
@@ -63,4 +97,6 @@ def build_product_info(name: str | None = None) -> ProductInfoProvider:
         return MockProductInfo()
     if selected == "text":
         return TextModelProductInfo()
+    if selected == "table":
+        return TableProductInfo()
     raise ValueError(f"unknown product info provider: {selected}")

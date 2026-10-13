@@ -16,8 +16,8 @@ from scale_host.providers import MissingApiKey, RemoteCallNotReady
 from scale_host.storage import SqliteRepository, WeighingSession
 
 _DEVICES = {"simulator", "serial"}
-_VISION = {"disabled", "mock", "minimax", "volcano"}
-_PRODUCT_INFO = {"disabled", "mock", "text"}
+_VISION = {"disabled", "mock", "minimax", "volcano", "siliconflow"}
+_PRODUCT_INFO = {"disabled", "mock", "text", "table"}
 
 
 def main() -> None:
