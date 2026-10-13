@@ -20,6 +20,8 @@ class ItemQuote(BaseModel):
     label: str = Field(min_length=1)
     confidence: float = Field(ge=0, le=1)
     price_per_kg: float = Field(ge=0)
+    kcal_per_100g: float | None = Field(default=None, ge=0)
+    carb_per_100g: float | None = Field(default=None, ge=0)
     summary: str = ""
     vision_source: str = Field(min_length=1)
     info_source: str = Field(min_length=1)
@@ -32,13 +34,18 @@ def identify_and_price(
     product_info: ProductInfoProvider,
 ) -> ItemQuote:
     recognition = vision.recognize(image_path)
-    info = product_info.lookup(recognition.label)
+    try:
+        info = product_info.lookup(recognition.label)
+    except KeyError as exc:
+        raise RuntimeError(f"no unit price for {recognition.label}") from exc
     if info.price_per_kg is None:
         raise RuntimeError(f"no unit price for {recognition.label}")
     return ItemQuote(
         label=recognition.label,
         confidence=recognition.confidence,
         price_per_kg=info.price_per_kg,
+        kcal_per_100g=info.kcal_per_100g,
+        carb_per_100g=info.carb_per_100g,
         summary=info.summary,
         vision_source=recognition.source,
         info_source=info.source,
