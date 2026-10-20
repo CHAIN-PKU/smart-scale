@@ -9,8 +9,10 @@ from scale_host.live_view import (
     main,
     placement_notices,
     price_current_view,
+    remember_placements,
     watch_readings,
 )
+from scale_host.storage import SqliteRepository
 
 
 class RecordingVision:
@@ -108,6 +110,28 @@ def _assert_notice(notice: tuple[str, str], request_id: str, weight_g: float, pr
     assert "千卡" not in speech
     assert "碳水" not in line
     assert "碳水" not in speech
+
+
+def test_each_live_sale_is_stored_once_with_its_nutrition(tmp_path, monkeypatch) -> None:
+    _block_network(monkeypatch)
+    repository = SqliteRepository(tmp_path / "scale.db")
+    vision = RecordingVision()
+    readings = _samples(_hold(326.4), _hold(328.0), _hold(0.0), _hold(200.0))
+    saved = remember_placements(readings, vision, ["frame-a", "frame-b"], repository)
+    assert [(item.id, item.weight_g, item.amount_yuan) for item in saved] == [
+        ("live-001", 326.4, 3.92),
+        ("live-002", 200.0, 2.40),
+    ]
+    first = repository.get_session("live-001")
+    second = repository.get_session("live-002")
+    assert first is not None and second is not None
+    assert first.portion_kcal == 297.0
+    assert first.portion_carb_g == 71.8
+    assert first.image_path == "frame-a"
+    assert second.portion_kcal == 182.0
+    assert second.portion_carb_g == 44.0
+    assert second.image_path == "frame-b"
+    assert len(repository.list_sessions()) == 2
 
 
 def test_a_frame_without_food_is_not_priced(monkeypatch) -> None:

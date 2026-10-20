@@ -16,8 +16,10 @@ from scale_host.device.simulator import SimulatedScaleDevice
 from scale_host.display_line import display_line
 from scale_host.domain import ScaleStatus, WeightReading
 from scale_host.fusion import PlacementPricer, Sale
+from scale_host.pipeline import session_from_sale
 from scale_host.quote import ItemQuote, identify_and_price
 from scale_host.speech import announcement
+from scale_host.storage import SqliteRepository, WeighingSession
 from scale_host.vision.interface import MockVision, VisionProvider
 
 LIVE_FRAME = "live-frame"
@@ -88,6 +90,26 @@ def placement_notices(sales: list[Sale]) -> list[tuple[str, str]]:
     for index, sale in enumerate(sales, start=1):
         notices.append((display_line(sale, f"r_{index:03d}"), announcement(sale)))
     return notices
+
+
+def remember_placements(
+    readings: list[WeightReading],
+    vision: VisionProvider,
+    frames: list[str],
+    repository: SqliteRepository,
+) -> list[WeighingSession]:
+    """Store one weighing per live sale. Nutrition stays in the record."""
+
+    saved: list[WeighingSession] = []
+    for index, sale in enumerate(watch_readings(readings, vision, frames), start=1):
+        session = session_from_sale(
+            sale,
+            session_id=f"live-{index:03d}",
+            timestamp=f"2026-10-20T20:32:{index:02d}",
+        )
+        repository.save_session(session)
+        saved.append(session)
+    return saved
 
 
 def watch_readings(
