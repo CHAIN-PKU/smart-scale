@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：放稳时识别当前画面并出价已验收。最终效果是实时识别，不是单独上传一张照片。顺序在 `docs/todo.md`。
+当前进度：对照页的正式屏幕来自放稳时的当前画面，已验收。三行是香蕉、326.4 克、3.92 元。顺序在 `docs/todo.md`。
 
 顺序写在 `docs/todo.md`。
 
@@ -61,7 +61,7 @@ vision: disabled
 | `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
 | `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
 | `docs/todo.md` | 调整后的开发顺序。价格不进本地总表 |
-| `docs/defense-card.html` | 电脑对照页。正式屏幕三行是香蕉、326.4 克、3.92 元。热量和碳水留在电脑区。正式屏幕仍是 TFT |
+| `docs/defense-card.html` | 电脑对照页。正式屏幕来自放稳时的当前画面，三行是香蕉、326.4 克、3.92 元。热量和碳水留在电脑区 |
 | `docs/adr/.gitkeep` | 以后放架构决定记录。现在是空位 |
 | `firmware/README.md` | 说明固件还没写，F103 和 F107 不能混用 |
 | `firmware/Core/.gitkeep` | Cube 生成的核心代码以后放这里 |
@@ -116,7 +116,7 @@ vision: disabled
 | `host/scale_host/long_line.py` | 丢掉超过 512 字节的一行，后面的稳定重量仍然计价 |
 | `host/scale_host/boot_capture.py` | 重放 2026-10-11 的 `BOOT`、`READY`、`ERROR` 和一行 `#` 调试。不计价。不打开 COM |
 | `host/scale_host/speech.py` | 用电脑扬声器念商品名、克数和金额。念不出来仍留下金额。不打开 COM |
-| `host/scale_host/demo_card.py` | 写出电脑对照页。热量和碳水留在这一页，不发给板子 |
+| `host/scale_host/demo_card.py` | 对照页的正式屏幕取放稳时的当前画面。热量和碳水留在这一页，不发给板子 |
 | `host/scale_host/live_view.py` | 放稳时识别当前画面并出价。同一次只发一行显示和一句播报 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
@@ -195,7 +195,7 @@ vision: disabled
 | `tests/unit/test_long_line.py` | 超过限制的一行被丢掉，后面的 326.4 克仍是 3.92 元 |
 | `tests/unit/test_boot_capture.py` | 上电三行和一行调试都不计价，状态停在 ERROR，也不打开 COM |
 | `tests/unit/test_speech.py` | 播报只有商品名、克数和金额。同一份不念第二遍。喇叭失败仍留下 3.92 元 |
-| `tests/unit/test_demo_card.py` | 对照页把模拟的 3.92 元和真秤的 2.64 元分开，并写上要念的那一句 |
+| `tests/unit/test_demo_card.py` | 正式屏幕来自放稳时的当前画面。三行是香蕉、326.4 克、3.92 元。真秤营养留在电脑区 |
 | `tests/unit/test_live_view.py` | 放稳才识别。漂了不发第二行。拿走再放才发下一行。热量不进显示和播报 |
 | `tests/unit/test_providers.py` | 模拟识别和模拟查价不联网；云模型没 key 会失败 |
 | `tests/unit/test_quote.py` | 识别出的名称会交给查价；模拟命令打出香蕉和 12 元 |
