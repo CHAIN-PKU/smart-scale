@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：对照页和扬声器播报都已验收。正式屏幕仍是秤上的 TFT。顺序在 `docs/todo.md`。
+当前进度：对照页上的正式屏幕三行已验收。正式屏幕仍是秤上的 TFT。顺序在 `docs/todo.md`。
 
 顺序写在 `docs/todo.md`。
 
@@ -61,7 +61,7 @@ vision: disabled
 | `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
 | `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
 | `docs/todo.md` | 调整后的开发顺序。价格不进本地总表 |
-| `docs/defense-card.html` | 电脑对照页。模拟香蕉、326.4 克、3.92 元，并写出电脑会念的那一句。正式屏幕仍是 TFT |
+| `docs/defense-card.html` | 电脑对照页。正式屏幕三行是香蕉、326.4 克、3.92 元。热量和碳水留在电脑区。正式屏幕仍是 TFT |
 | `docs/adr/.gitkeep` | 以后放架构决定记录。现在是空位 |
 | `firmware/README.md` | 说明固件还没写，F103 和 F107 不能混用 |
 | `firmware/Core/.gitkeep` | Cube 生成的核心代码以后放这里 |

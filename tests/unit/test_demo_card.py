@@ -15,6 +15,10 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
         "product: banana",
         "weight_g: 326.4",
         "price: 3.92",
+        "formal_screen:",
+        "香蕉",
+        "326.4 克",
+        "3.92 元",
         "computer:",
         "portion_kcal: 297.0",
         "portion_carb_g: 71.8",
@@ -29,8 +33,10 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
 def test_page_keeps_the_real_weighing_apart_from_the_simulated_one() -> None:
     sale = asyncio.run(price_simulated_banana())
     page = render_page(sale)
+    assert "正式屏幕" in page
     assert "326.4 克" in page
     assert "3.92 元" in page
+    assert "发给板子的 product 仍是 banana" in page
     assert "电脑会念：香蕉，326.4克，3.92元" in page
     assert "热量和碳水不念" in page
     assert "220.3 克" in page

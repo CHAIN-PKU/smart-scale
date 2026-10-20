@@ -15,15 +15,24 @@ from scale_host.speech import announcement
 REAL_WEIGHT_G = 220.3
 REAL_AMOUNT_YUAN = 2.64
 PAGE_PATH = Path("docs/defense-card.html")
+_SCREEN_NAMES = {"banana": "香蕉", "香蕉": "香蕉"}
+
+
+def screen_lines(sale: Sale) -> list[str]:
+    name = _SCREEN_NAMES.get(sale.label, sale.label)
+    return [name, f"{sale.weight_g:g} 克", f"{sale.amount_yuan:.2f} 元"]
 
 
 async def card_lines() -> list[str]:
     sale = await price_simulated_banana()
+    lines = screen_lines(sale)
     return [
         "screen:",
         f"product: {sale.label}",
         f"weight_g: {sale.weight_g}",
         f"price: {sale.amount_yuan:.2f}",
+        "formal_screen:",
+        *lines,
         "computer:",
         f"portion_kcal: {sale.portion_kcal}",
         f"portion_carb_g: {sale.portion_carb_g}",
@@ -36,6 +45,7 @@ async def card_lines() -> list[str]:
 
 
 def render_page(sale: Sale) -> str:
+    name, weight, price = screen_lines(sale)
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -55,7 +65,14 @@ def render_page(sale: Sale) -> str:
 <body>
   <main>
     <h1>智能电子秤</h1>
-    <p class="muted">电脑上的对照页。正式屏幕是秤上的 TFT，那里只显示商品名、克数和金额。</p>
+    <p class="muted">电脑上的对照页。正式屏幕是秤上的 TFT，那里只显示下面这三行。</p>
+    <h2>正式屏幕</h2>
+    <section class="panel">
+      <div class="big">{escape(name)}</div>
+      <div class="big">{escape(weight)}</div>
+      <div class="big">{escape(price)}</div>
+      <p class="muted">商品名、克数、金额。热量和碳水留在下面的电脑区。发给板子的 product 仍是 {escape(sale.label)}。</p>
+    </section>
     <h2>这次模拟的一屏</h2>
     <section class="panel">
       <div>商品名 {escape(sale.label)}</div>
@@ -66,7 +83,7 @@ def render_page(sale: Sale) -> str:
     </section>
     <h2>真秤已经测过</h2>
     <section class="panel">
-      <p>2026-10-13，COM4。放稳 {REAL_WEIGHT_G:g} 克，金额 {REAL_AMOUNT_YUAN:.2f} 元。当时名字用的是演示香蕉，不是后来这张照片。</p>
+      <p>2026-10-13，COM4。放稳 {REAL_WEIGHT_G:g} 克，金额 {REAL_AMOUNT_YUAN:.2f} 元。当时名字用的是演示香蕉，不是后来这张照片。秤上就是现在这只托盘，标定保持那一次的零点和每克系数。</p>
     </section>
     <h2>照片</h2>
     <section class="panel">
