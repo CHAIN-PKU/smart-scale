@@ -19,6 +19,8 @@ class WeighingSession(BaseModel):
     label: str | None = None
     price_per_kg: float | None = Field(default=None, ge=0)
     amount_yuan: float | None = Field(default=None, ge=0)
+    portion_kcal: float | None = Field(default=None, ge=0)
+    portion_carb_g: float | None = Field(default=None, ge=0)
 
 
 class CorrectionRecord(BaseModel):

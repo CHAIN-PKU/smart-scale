@@ -35,6 +35,8 @@ def session_from_sale(sale: Sale, *, session_id: str, timestamp: str) -> Weighin
         label=sale.label,
         price_per_kg=sale.price_per_kg,
         amount_yuan=sale.amount_yuan,
+        portion_kcal=sale.portion_kcal,
+        portion_carb_g=sale.portion_carb_g,
     )
 
 

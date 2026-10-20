@@ -88,6 +88,10 @@ def _print_stored(stored: WeighingSession | None) -> None:
     print(f"weight_g: {stored.weight_g}")
     print(f"price_per_kg: {stored.price_per_kg}")
     print(f"amount_yuan: {stored.amount_yuan:.2f}")
+    if stored.portion_kcal is not None:
+        print(f"portion_kcal: {stored.portion_kcal}")
+    if stored.portion_carb_g is not None:
+        print(f"portion_carb_g: {stored.portion_carb_g}")
     print(f"stored: {stored.id}")
 
 

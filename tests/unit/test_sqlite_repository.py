@@ -29,6 +29,28 @@ def test_session_and_correction_round_trip(tmp_path) -> None:
     assert correction.image_path == "data/test_images/banana.jpg"
 
 
+def test_portion_nutrition_round_trip(tmp_path) -> None:
+    repository = SqliteRepository(tmp_path / "scale.db")
+    repository.save_session(
+        WeighingSession(
+            id="s-portion",
+            timestamp="2026-10-13T21:00:00",
+            weight_g=220.3,
+            label="banana",
+            price_per_kg=12.0,
+            amount_yuan=2.64,
+            portion_kcal=200.5,
+            portion_carb_g=48.5,
+        )
+    )
+    stored = repository.get_session("s-portion")
+    assert stored is not None
+    assert stored.portion_kcal == 200.5
+    assert stored.portion_carb_g == 48.5
+    listed = repository.list_sessions()
+    assert listed[0].id == "s-portion"
+
+
 def test_missing_session_has_no_correction(tmp_path) -> None:
     repository = SqliteRepository(tmp_path / "scale.db")
     assert repository.get_session("missing") is None

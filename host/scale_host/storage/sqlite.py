@@ -8,6 +8,23 @@ from pathlib import Path
 from scale_host.storage.records import CorrectionRecord, DeviceEvent, WeighingSession
 
 
+def _session_from_row(row: tuple) -> WeighingSession:
+    return WeighingSession(
+        id=row[0],
+        timestamp=row[1],
+        weight_g=row[2],
+        image_path=row[3],
+        product_id=row[4],
+        confidence=row[5],
+        model_name=row[6],
+        label=row[7],
+        price_per_kg=row[8],
+        amount_yuan=row[9],
+        portion_kcal=row[10],
+        portion_carb_g=row[11],
+    )
+
+
 class SqliteRepository:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -22,8 +39,8 @@ class SqliteRepository:
                 """
                 INSERT INTO weighing_sessions (
                     id, timestamp, weight_g, image_path, product_id, confidence, model_name,
-                    label, price_per_kg, amount_yuan
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session.id,
@@ -36,6 +53,8 @@ class SqliteRepository:
                     session.label,
                     session.price_per_kg,
                     session.amount_yuan,
+                    session.portion_kcal,
+                    session.portion_carb_g,
                 ),
             )
 
@@ -44,25 +63,28 @@ class SqliteRepository:
             row = connection.execute(
                 """
                 SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name,
-                       label, price_per_kg, amount_yuan
+                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
                 FROM weighing_sessions WHERE id = ?
                 """,
                 (session_id,),
             ).fetchone()
         if row is None:
             return None
-        return WeighingSession(
-            id=row[0],
-            timestamp=row[1],
-            weight_g=row[2],
-            image_path=row[3],
-            product_id=row[4],
-            confidence=row[5],
-            model_name=row[6],
-            label=row[7],
-            price_per_kg=row[8],
-            amount_yuan=row[9],
-        )
+        return _session_from_row(row)
+
+    def list_sessions(self, limit: int = 10) -> list[WeighingSession]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name,
+                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
+                FROM weighing_sessions
+                ORDER BY timestamp DESC, id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_session_from_row(row) for row in rows]
 
     def add_correction(
         self,
@@ -140,7 +162,13 @@ class SqliteRepository:
 
 def _ensure_sale_columns(connection: sqlite3.Connection) -> None:
     present = {row[1] for row in connection.execute("PRAGMA table_info(weighing_sessions)")}
-    for name, kind in (("label", "TEXT"), ("price_per_kg", "REAL"), ("amount_yuan", "REAL")):
+    for name, kind in (
+        ("label", "TEXT"),
+        ("price_per_kg", "REAL"),
+        ("amount_yuan", "REAL"),
+        ("portion_kcal", "REAL"),
+        ("portion_carb_g", "REAL"),
+    ):
         if name not in present:
             connection.execute(f"ALTER TABLE weighing_sessions ADD COLUMN {name} {kind}")
 
@@ -166,6 +194,8 @@ CREATE TABLE IF NOT EXISTS weighing_sessions (
     label TEXT,
     price_per_kg REAL,
     amount_yuan REAL,
+    portion_kcal REAL,
+    portion_carb_g REAL,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
