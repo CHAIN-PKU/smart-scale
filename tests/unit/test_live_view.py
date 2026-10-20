@@ -7,6 +7,7 @@ from scale_host.domain import ProductRecognition, ScaleStatus, WeightReading
 from scale_host.live_view import (
     LIVE_FRAME,
     main,
+    latest_answer,
     placement_notices,
     price_current_view,
     remember_placements,
@@ -132,6 +133,17 @@ def test_each_live_sale_is_stored_once_with_its_nutrition(tmp_path, monkeypatch)
     assert second.portion_carb_g == 44.0
     assert second.image_path == "frame-b"
     assert len(repository.list_sessions()) == 2
+
+
+def test_latest_question_reads_the_newest_live_record(tmp_path, monkeypatch) -> None:
+    _block_network(monkeypatch)
+    repository = SqliteRepository(tmp_path / "scale.db")
+    assert latest_answer(repository) == "还没有称重记录。"
+    vision = RecordingVision()
+    readings = _samples(_hold(326.4), _hold(328.0), _hold(0.0), _hold(200.0))
+    remember_placements(readings, vision, ["frame-a", "frame-b"], repository)
+    assert latest_answer(repository) == "最近一次：banana，200 克，2.40 元，182 千卡，碳水 44 克。"
+    assert vision.paths == ["frame-a", "frame-b"]
 
 
 def test_a_frame_without_food_is_not_priced(monkeypatch) -> None:

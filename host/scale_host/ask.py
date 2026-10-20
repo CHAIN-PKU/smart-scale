@@ -70,7 +70,21 @@ def _history(sessions: list[WeighingSession]) -> str:
         return "还没有称重记录。"
     latest = sessions[0]
     amount = "" if latest.amount_yuan is None else f"，{latest.amount_yuan:.2f} 元"
-    return f"最近一次：{latest.label}，{latest.weight_g:g} 克{amount}。"
+    nutrition = _history_nutrition(latest)
+    return f"最近一次：{latest.label}，{latest.weight_g:g} 克{amount}{nutrition}。"
+
+
+def _history_nutrition(session: WeighingSession) -> str:
+    kcal = session.portion_kcal
+    carb = session.portion_carb_g
+    if kcal is None or carb is None:
+        label = session.label or ""
+        if not _is_banana(label) or session.weight_g <= 0:
+            return ""
+        info = TableProductInfo().lookup("banana")
+        kcal = portion_from_100g(session.weight_g, info.kcal_per_100g or 0)
+        carb = portion_from_100g(session.weight_g, info.carb_per_100g or 0)
+    return f"，{kcal:g} 千卡，碳水 {carb:g} 克"
 
 
 def _saved_sessions() -> list[WeighingSession]:

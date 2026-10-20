@@ -11,6 +11,7 @@ import asyncio
 import sys
 from dataclasses import dataclass
 
+from scale_host.ask import answer
 from scale_host.catalog import TableProductInfo
 from scale_host.device.simulator import SimulatedScaleDevice
 from scale_host.display_line import display_line
@@ -110,6 +111,12 @@ def remember_placements(
         repository.save_session(session)
         saved.append(session)
     return saved
+
+
+def latest_answer(repository: SqliteRepository) -> str:
+    """Read the newest stored weighing. This does not open the scale."""
+
+    return answer("上次称了多少", repository.list_sessions(limit=1))
 
 
 def watch_readings(

@@ -26,7 +26,35 @@ def test_latest_weighing_comes_from_the_saved_record() -> None:
         label="banana",
         amount_yuan=2.64,
     )
-    assert answer("上次称了多少", [session]) == "最近一次：banana，220.3 克，2.64 元。"
+    assert answer("上次称了多少", [session]) == (
+        "最近一次：banana，220.3 克，2.64 元，200.5 千卡，碳水 48.5 克。"
+    )
+
+
+def test_saved_nutrition_is_repeated_as_stored() -> None:
+    session = WeighingSession(
+        id="banana-3264",
+        timestamp="2026-10-20T12:00:00",
+        weight_g=326.4,
+        label="banana",
+        amount_yuan=3.92,
+        portion_kcal=297.0,
+        portion_carb_g=71.8,
+    )
+    assert answer("上次称了多少", [session]) == (
+        "最近一次：banana，326.4 克，3.92 元，297 千卡，碳水 71.8 克。"
+    )
+
+
+def test_unknown_history_has_no_invented_nutrition() -> None:
+    session = WeighingSession(
+        id="other-1",
+        timestamp="2026-10-20T12:00:00",
+        weight_g=100.0,
+        label="apple",
+        amount_yuan=1.50,
+    )
+    assert answer("上次称了多少", [session]) == "最近一次：apple，100 克，1.50 元。"
 
 
 def test_unknown_name_is_not_priced() -> None:
