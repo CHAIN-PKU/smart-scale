@@ -19,6 +19,7 @@ from scale_host.vision.interface import MockVision
 REAL_WEIGHT_G = 220.3
 REAL_AMOUNT_YUAN = 2.64
 PAGE_PATH = Path("docs/defense-card.html")
+TFT_MODEL = "3.2 TFT SPI 240×320 v1.0"
 _SCREEN_NAMES = {"banana": "香蕉", "香蕉": "香蕉"}
 
 
@@ -56,6 +57,7 @@ async def card_lines() -> list[str]:
         f"price: {sale.amount_yuan:.2f}",
         f"frame: {LIVE_FRAME}",
         "recognized_when: WEIGHT_STABLE",
+        f"tft: {TFT_MODEL}",
         "formal_screen:",
         *lines,
         "computer:",
@@ -93,7 +95,7 @@ def render_page(sale: Sale) -> str:
 <body>
   <main>
     <h1>智能电子秤</h1>
-    <p class="muted">电脑上的对照页。正式屏幕是秤上的 TFT，那里只显示下面这三行。</p>
+    <p class="muted">电脑上的对照页。正式屏幕是秤上的 {escape(TFT_MODEL)}，那里只显示下面这三行。</p>
     <h2>正式屏幕</h2>
     <section class="panel">
       <div class="big">{escape(name)}</div>

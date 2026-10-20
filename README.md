@@ -2,7 +2,7 @@
 
 智能电子秤的 PC 主机仓库。运行时是 `python -m scale_host`，不是 Cursor。
 
-当前进度：问上次称重时读最新的实时记录，已验收。没有记录时回答还没有。200 克是 2.40 元、182 千卡、碳水 44 克。顺序在 `docs/todo.md`。
+当前进度：对照页已写上正式屏幕 3.2 TFT SPI 240×320 v1.0，已验收。三行是香蕉、326.4 克、3.92 元。顺序在 `docs/todo.md`。
 
 顺序写在 `docs/todo.md`。
 
@@ -61,7 +61,7 @@ vision: disabled
 | `docs/state-machine.md` | 八个称重状态，以及上电不要自动去皮 |
 | `docs/hardware-handoff.docx` | 给硬件同学的进度。每验收一步追加一小段 |
 | `docs/todo.md` | 调整后的开发顺序。价格不进本地总表 |
-| `docs/defense-card.html` | 电脑对照页。正式屏幕来自放稳时的当前画面，三行是香蕉、326.4 克、3.92 元。热量和碳水留在电脑区 |
+| `docs/defense-card.html` | 电脑对照页。正式屏幕是 3.2 TFT SPI 240×320 v1.0，三行是香蕉、326.4 克、3.92 元。热量和碳水留在电脑区 |
 | `docs/adr/.gitkeep` | 以后放架构决定记录。现在是空位 |
 | `firmware/README.md` | 说明固件还没写，F103 和 F107 不能混用 |
 | `firmware/Core/.gitkeep` | Cube 生成的核心代码以后放这里 |
