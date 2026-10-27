@@ -20,6 +20,7 @@ REAL_WEIGHT_G = 220.3
 REAL_AMOUNT_YUAN = 2.64
 PAGE_PATH = Path("docs/defense-card.html")
 TFT_MODEL = "3.2 TFT SPI 240×320 v1.0"
+TFT_LIT = "2026-10-27"
 _SCREEN_NAMES = {"banana": "香蕉", "香蕉": "香蕉"}
 
 
@@ -58,6 +59,7 @@ async def card_lines() -> list[str]:
         f"frame: {LIVE_FRAME}",
         "recognized_when: WEIGHT_STABLE",
         f"tft: {TFT_MODEL}",
+        f"tft_lit: {TFT_LIT}",
         "formal_screen:",
         *lines,
         "computer:",
@@ -101,7 +103,7 @@ def render_page(sale: Sale) -> str:
       <div class="big">{escape(name)}</div>
       <div class="big">{escape(weight)}</div>
       <div class="big">{escape(price)}</div>
-      <p class="muted">商品名、克数、金额。这一屏来自放稳时的当前画面，不是事先上传的照片。热量和碳水留在下面的电脑区。发给板子的 product 仍是 {escape(sale.label)}。</p>
+      <p class="muted">{escape(TFT_LIT)} 这块屏已经点亮，能显示克重。上面三行是它要显示的商品名、克数和金额。这一屏来自放稳时的当前画面，不是事先上传的照片。热量和碳水留在下面的电脑区。发给板子的 product 仍是 {escape(sale.label)}。</p>
     </section>
     <h2>这次模拟的一屏</h2>
     <section class="panel">

@@ -85,6 +85,6 @@ OVERLOAD 或 ERROR → READY             （故障消失）
 
 HX711 读数、滤波、上面的状态、按 `protocol.md` 打成一行 JSON、从串口发出去、执行去皮、接收 `display_result`。
 
-`display_result` 先能在串口调试助手里看到即可。屏幕以后再接，不挡住这条链路。
+`display_result` 仍是商品名、克数、金额。2026-10-27 屏幕已经能点亮并显示克重，协议不改。
 
 不需要实现视觉识别、数据库或电脑上的主机程序。
