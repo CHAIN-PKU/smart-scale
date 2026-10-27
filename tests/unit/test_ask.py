@@ -57,6 +57,33 @@ def test_unknown_history_has_no_invented_nutrition() -> None:
     assert answer("上次称了多少", [session]) == "最近一次：apple，100 克，1.50 元。"
 
 
+def test_screen_question_uses_the_latest_sale_without_nutrition() -> None:
+    session = WeighingSession(
+        id="banana-3264",
+        timestamp="2026-10-27T16:40:00",
+        weight_g=326.4,
+        label="banana",
+        amount_yuan=3.92,
+        portion_kcal=297.0,
+        portion_carb_g=71.8,
+    )
+    assert answer("屏幕上是什么", [session]) == "香蕉、326.4克、3.92元"
+    assert answer("屏幕上是什么", []) == "屏幕上还没有结果。"
+
+
+def test_screen_question_does_not_invent_a_chinese_name() -> None:
+    session = WeighingSession(
+        id="other-1",
+        timestamp="2026-10-20T12:00:00",
+        weight_g=100.0,
+        label="apple",
+        amount_yuan=1.50,
+        portion_kcal=52.0,
+        portion_carb_g=14.0,
+    )
+    assert answer("屏幕上是什么", [session]) == "apple、100克、1.50元"
+
+
 def test_unknown_name_is_not_priced() -> None:
     assert answer("苹果多少钱") == "短表里没有这个名字，不出价。"
 

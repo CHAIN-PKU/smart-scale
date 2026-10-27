@@ -7,6 +7,7 @@ import sys
 from html import escape
 from pathlib import Path
 
+from scale_host.ask import screen_line
 from scale_host.catalog import TableProductInfo
 from scale_host.device.simulator import SimulatedScaleDevice
 from scale_host.domain import ScaleStatus
@@ -68,6 +69,7 @@ async def card_lines() -> list[str]:
         f"portion_kcal: {sale.portion_kcal}",
         f"portion_carb_g: {sale.portion_carb_g}",
         f"spoken_line: {announcement(sale)}",
+        f"screen_answer: {screen_line(sale.label, sale.weight_g, sale.amount_yuan)}",
         "real_weight_g: 220.3",
         "real_amount_yuan: 2.64",
         f"real_portion_kcal: {real_kcal}",
@@ -79,6 +81,7 @@ async def card_lines() -> list[str]:
 
 def render_page(sale: Sale) -> str:
     name, weight, price = screen_lines(sale)
+    shown = screen_line(sale.label, sale.weight_g, sale.amount_yuan)
     real_kcal, real_carb = real_portion()
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -113,6 +116,7 @@ def render_page(sale: Sale) -> str:
       <div class="big">{sale.weight_g:g} 克</div>
       <div class="big">{sale.amount_yuan:.2f} 元</div>
       <p>电脑会念：{escape(announcement(sale))}。热量和碳水不念。</p>
+      <p>问「屏幕上是什么」时回答：{escape(shown)}。不含热量和碳水。</p>
       <p>热量 {sale.portion_kcal:g} 千卡，碳水 {sale.portion_carb_g:g} 克。这两项留在电脑上，不发给板子。</p>
     </section>
     <h2>真秤已经测过</h2>

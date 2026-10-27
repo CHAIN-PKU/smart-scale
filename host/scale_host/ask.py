@@ -18,6 +18,8 @@ _BANANA = ("banana", "香蕉")
 
 def answer(question: str, sessions: list[WeighingSession] | None = None) -> str:
     text = question.strip()
+    if _asks_screen(text):
+        return _screen(sessions or [])
     if _asks_history(text):
         return _history(sessions or [])
     grams = _GRAMS.search(text)
@@ -40,8 +42,26 @@ def main() -> None:
     print("sent_to_internet: no")
 
 
+def _asks_screen(text: str) -> bool:
+    return "屏幕" in text
+
+
 def _asks_history(text: str) -> bool:
     return any(word in text for word in ("上次", "最近", "历史"))
+
+
+def screen_line(label: str | None, weight_g: float, amount_yuan: float) -> str:
+    name = "香蕉" if label and _is_banana(label) else (label or "未知")
+    return f"{name}、{weight_g:g}克、{amount_yuan:.2f}元"
+
+
+def _screen(sessions: list[WeighingSession]) -> str:
+    if not sessions:
+        return "屏幕上还没有结果。"
+    latest = sessions[0]
+    if latest.amount_yuan is None:
+        return "屏幕上还没有金额。"
+    return screen_line(latest.label, latest.weight_g, latest.amount_yuan)
 
 
 def _is_banana(text: str) -> bool:

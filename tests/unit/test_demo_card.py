@@ -27,6 +27,7 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
         "portion_kcal: 297.0",
         "portion_carb_g: 71.8",
         "spoken_line: 香蕉，326.4克，3.92元",
+        "screen_answer: 香蕉、326.4克、3.92元",
         "real_weight_g: 220.3",
         "real_amount_yuan: 2.64",
         "real_portion_kcal: 200.5",
@@ -45,6 +46,7 @@ def test_page_keeps_the_real_weighing_apart_from_the_simulated_one() -> None:
     assert "3.92 元" in page
     assert "发给板子的 product 仍是 banana" in page
     assert "电脑会念：香蕉，326.4克，3.92元" in page
+    assert "问「屏幕上是什么」时回答：香蕉、326.4克、3.92元" in page
     assert "热量和碳水不念" in page
     assert "220.3 克" in page
     assert "2.64 元" in page
