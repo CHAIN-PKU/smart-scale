@@ -18,6 +18,7 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
         "recognized_when: WEIGHT_STABLE",
         "tft: 3.2 TFT SPI 240×320 v1.0",
         "tft_lit: 2026-10-27",
+        "screen_photo: 香蕉、326.4克、3.92元",
         "formal_screen:",
         "香蕉",
         "326.4 克",
@@ -55,6 +56,7 @@ def test_page_keeps_the_real_weighing_apart_from_the_simulated_one() -> None:
     assert "当前画面" in formal
     assert "3.2 TFT SPI 240×320 v1.0" in formal
     assert "2026-10-27 这块屏已经点亮，能显示克重" in formal
+    assert "实拍是香蕉、326.4克、3.92元，和上面三行一致" in formal
     assert "openmv_banana.jpg" not in formal
     assert "演示香蕉" in page
     assert "http://" not in page
