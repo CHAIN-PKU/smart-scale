@@ -100,7 +100,18 @@ def test_each_live_sale_sends_one_display_line_and_one_spoken_line(monkeypatch) 
 def _assert_notice(notice: tuple[str, str], request_id: str, weight_g: float, price: float, spoken: str) -> None:
     line, speech = notice
     payload = json.loads(line)
-    assert set(payload) == {"v", "type", "request_id", "product", "weight_g", "price"}
+    assert set(payload) == {
+        "v",
+        "type",
+        "request_id",
+        "product",
+        "weight_g",
+        "price",
+        "price_per_kg",
+        "portion_kcal",
+        "portion_carb_g",
+        "portion_fiber_g",
+    }
     assert payload["type"] == "display_result"
     assert payload["product"] == "banana"
     assert payload["request_id"] == request_id
@@ -142,7 +153,9 @@ def test_latest_question_reads_the_newest_live_record(tmp_path, monkeypatch) -> 
     vision = RecordingVision()
     readings = _samples(_hold(326.4), _hold(328.0), _hold(0.0), _hold(200.0))
     remember_placements(readings, vision, ["frame-a", "frame-b"], repository)
-    assert latest_answer(repository) == "最近一次：banana，200 克，2.40 元，182 千卡，碳水 44 克。"
+    assert latest_answer(repository) == (
+        "最近一次：banana，200 克，2.40 元，182 千卡，碳水 44 克，膳食纤维 2.4 克。"
+    )
     assert vision.paths == ["frame-a", "frame-b"]
 
 

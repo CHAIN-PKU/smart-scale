@@ -25,6 +25,7 @@ def quote_for_recognized_banana() -> ItemQuote:
         price_per_kg=info.price_per_kg,
         kcal_per_100g=info.kcal_per_100g,
         carb_per_100g=info.carb_per_100g,
+        fiber_per_100g=info.fiber_per_100g,
         summary=info.summary,
         vision_source="siliconflow",
         info_source=info.source,
@@ -61,6 +62,7 @@ def main() -> None:
     print(f"amount_yuan: {sale.amount_yuan:.2f}")
     print(f"portion_kcal: {sale.portion_kcal}")
     print(f"portion_carb_g: {sale.portion_carb_g}")
+    print(f"portion_fiber_g: {sale.portion_fiber_g}")
     print("sent_to_internet: no")
     print("com_open: no")
     if sale.amount_yuan != 3.92 or sale.weight_g != 326.4:

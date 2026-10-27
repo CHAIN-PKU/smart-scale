@@ -21,6 +21,7 @@ class WeighingSession(BaseModel):
     amount_yuan: float | None = Field(default=None, ge=0)
     portion_kcal: float | None = Field(default=None, ge=0)
     portion_carb_g: float | None = Field(default=None, ge=0)
+    portion_fiber_g: float | None = Field(default=None, ge=0)
 
 
 class CorrectionRecord(BaseModel):

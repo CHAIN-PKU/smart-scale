@@ -7,10 +7,10 @@ import json
 import sys
 
 from scale_host.catalog import TableProductInfo
-from scale_host.device.interface import DisplayRequest
 from scale_host.device.serial_device import SerialScaleDevice
 from scale_host.domain import WeightReading
 from scale_host.fusion import PlacementPricer, Sale
+from scale_host.pipeline import display_request_for
 from scale_host.quote import identify_and_price
 from scale_host.serial_replay import ScriptedPort
 from scale_host.vision import MockVision
@@ -45,13 +45,7 @@ async def replay_placement(port: ScriptedPort) -> Sale | None:
             if priced is None:
                 continue
             sale = priced
-            await device.display(
-                DisplayRequest(
-                    product=sale.label,
-                    weight_g=sale.weight_g,
-                    price=sale.amount_yuan,
-                )
-            )
+            await device.display(display_request_for(sale))
         return sale
     finally:
         await device.disconnect()
@@ -66,6 +60,7 @@ def main() -> None:
     print(f"amount_yuan: {sale.amount_yuan if sale else ''}")
     print(f"portion_kcal: {sale.portion_kcal if sale else ''}")
     print(f"portion_carb_g: {sale.portion_carb_g if sale else ''}")
+    print(f"portion_fiber_g: {sale.portion_fiber_g if sale else ''}")
     print(f"displays: {len(port.outgoing)}")
     print("sent_to_internet: no")
     if (

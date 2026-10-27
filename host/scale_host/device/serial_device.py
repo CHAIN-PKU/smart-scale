@@ -12,6 +12,7 @@ from scale_host.protocol.messages import (
     CommandMessage,
     DisplayResultMessage,
     ProtocolError,
+    ReceiptResultMessage,
     StatusMessage,
     WeightMessage,
     parse_line,
@@ -53,6 +54,9 @@ class SerialScaleDevice:
             if isinstance(message, StatusMessage):
                 self._state = ScaleStatus(message.state)
                 continue
+            if isinstance(message, CommandMessage):
+                yield message
+                continue
             if isinstance(message, WeightMessage):
                 yield _reading(message, self._state)
 
@@ -78,11 +82,20 @@ class SerialScaleDevice:
                 product=request.product,
                 weight_g=request.weight_g,
                 price=request.price,
+                price_per_kg=request.price_per_kg,
+                portion_kcal=request.portion_kcal,
+                portion_carb_g=request.portion_carb_g,
+                portion_fiber_g=request.portion_fiber_g,
             )
         )
 
-    def _write(self, message: CommandMessage | DisplayResultMessage) -> None:
-        self._port.write(message.model_dump_json().encode("utf-8") + b"\n")
+    def write_message(self, message: AckMessage | ReceiptResultMessage) -> None:
+        if not self._connected:
+            return
+        self._write(message)
+
+    def _write(self, message: CommandMessage | DisplayResultMessage | AckMessage | ReceiptResultMessage) -> None:
+        self._port.write(message.model_dump_json(exclude_none=True).encode("utf-8") + b"\n")
 
     def _read_message(self):
         while self._connected:
@@ -99,7 +112,9 @@ class SerialScaleDevice:
                 message = parse_line(text)
             except ProtocolError:
                 continue
-            if message is None or isinstance(message, (WeightMessage, StatusMessage, AckMessage)):
+            if message is None or isinstance(
+                message, (WeightMessage, StatusMessage, AckMessage, CommandMessage)
+            ):
                 return message
         return _CLOSED
 

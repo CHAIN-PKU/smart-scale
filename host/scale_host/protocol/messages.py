@@ -83,7 +83,7 @@ class AckMessage(BaseModel):
     type: Literal["ack"]
     seq: IntField = Field(ge=0)
     timestamp_ms: IntField = Field(ge=0)
-    command: Literal["tare"]
+    command: Literal["tare", "save"]
     status: Literal["ok", "error"]
 
 
@@ -91,7 +91,7 @@ class CommandMessage(BaseModel):
     model_config = _MODEL_CONFIG
     v: Literal[1]
     type: Literal["command"]
-    command: Literal["tare"]
+    command: Literal["tare", "save", "receipt", "clear"]
 
 
 class DisplayResultMessage(BaseModel):
@@ -102,6 +102,27 @@ class DisplayResultMessage(BaseModel):
     product: str = Field(min_length=1, max_length=64)
     weight_g: NumberField
     price: NumberField = Field(ge=0)
+    price_per_kg: NumberField | None = Field(default=None, ge=0)
+    portion_kcal: NumberField | None = Field(default=None, ge=0)
+    portion_carb_g: NumberField | None = Field(default=None, ge=0)
+    portion_fiber_g: NumberField | None = Field(default=None, ge=0)
+
+
+class ReceiptItem(BaseModel):
+    model_config = _MODEL_CONFIG
+    n: IntField = Field(ge=1)
+    product: str = Field(min_length=1, max_length=64)
+    price_per_kg: NumberField = Field(ge=0)
+    weight_g: NumberField
+    price: NumberField = Field(ge=0)
+
+
+class ReceiptResultMessage(BaseModel):
+    model_config = _MODEL_CONFIG
+    v: Literal[1]
+    type: Literal["receipt_result"]
+    items: list[ReceiptItem]
+    total: NumberField = Field(ge=0)
 
 
 Message = Union[
@@ -110,6 +131,7 @@ Message = Union[
     AckMessage,
     CommandMessage,
     DisplayResultMessage,
+    ReceiptResultMessage,
 ]
 
 _MODELS: dict[str, type[BaseModel]] = {
@@ -118,6 +140,7 @@ _MODELS: dict[str, type[BaseModel]] = {
     "ack": AckMessage,
     "command": CommandMessage,
     "display_result": DisplayResultMessage,
+    "receipt_result": ReceiptResultMessage,
 }
 
 

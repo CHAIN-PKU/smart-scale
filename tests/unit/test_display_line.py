@@ -52,4 +52,5 @@ def test_display_command_prints_one_protocol_line(capsys, monkeypatch) -> None:
         "product": "banana",
         "weight_g": 326.4,
         "price": 3.92,
+        "price_per_kg": 12.0,
     }

@@ -21,6 +21,7 @@ def test_captured_placement_is_priced_once(monkeypatch) -> None:
     assert sale.amount_yuan == 2.65
     assert sale.portion_kcal == 201.2
     assert sale.portion_carb_g == 48.6
+    assert sale.portion_fiber_g == 2.7
     assert len(port.outgoing) == 1
 
 
@@ -40,6 +41,7 @@ def test_board_capture_command_stays_offline(capsys, monkeypatch) -> None:
         "amount_yuan: 2.65",
         "portion_kcal: 201.2",
         "portion_carb_g: 48.6",
+        "portion_fiber_g: 2.7",
         "displays: 1",
         "sent_to_internet: no",
     ]

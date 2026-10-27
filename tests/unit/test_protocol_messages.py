@@ -36,6 +36,36 @@ def test_valid_weight_status_ack_command_and_display() -> None:
     assert display is not None
     assert display.product == "banana"
     assert display.price == 3.92
+    assert display.portion_kcal is None
+
+    nutrition = parse_line(
+        '{"v":1,"type":"display_result","request_id":"r_002","product":"banana",'
+        '"weight_g":326.4,"price":3.92,"portion_kcal":297,"portion_carb_g":71.8,'
+        '"portion_fiber_g":3.9}'
+    )
+    assert nutrition is not None
+    assert nutrition.portion_fiber_g == 3.9
+
+    for name in ("save", "receipt", "clear"):
+        command = parse_line('{"v":1,"type":"command","command":"%s"}' % name)
+        assert command is not None
+        assert command.command == name
+
+    saved = parse_line(
+        '{"v":1,"type":"ack","seq":0,"timestamp_ms":0,"command":"save","status":"error"}'
+    )
+    assert saved is not None
+    assert saved.status == "error"
+
+    receipt = parse_line(
+        '{"v":1,"type":"receipt_result","items":[{"n":1,"product":"banana",'
+        '"price_per_kg":12,"weight_g":326.4,"price":3.92}],"total":3.92}'
+    )
+    assert receipt is not None
+    assert receipt.total == 3.92
+    assert receipt.items[0].n == 1
+    assert receipt.items[0].product == "banana"
+    assert receipt.items[0].price_per_kg == 12
 
 
 def test_blank_line_is_ignored() -> None:

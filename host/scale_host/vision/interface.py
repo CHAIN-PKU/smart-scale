@@ -8,6 +8,7 @@ from typing import Protocol
 from scale_host.domain import ProductRecognition
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
 from scale_host.vision.siliconflow import SiliconFlowVision
+from scale_host.vision.yolo import YoloVision
 
 
 class VisionProvider(Protocol):
@@ -81,4 +82,6 @@ def build_vision(name: str | None = None) -> VisionProvider:
         return VolcanoVision()
     if selected == "siliconflow":
         return SiliconFlowVision()
+    if selected == "yolo":
+        return YoloVision()
     raise ValueError(f"unknown vision provider: {selected}")

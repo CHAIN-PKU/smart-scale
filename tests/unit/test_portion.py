@@ -30,6 +30,7 @@ def test_stable_banana_uses_the_table_standards() -> None:
     assert sale.amount_yuan == 3.92
     assert sale.portion_kcal == 297.0
     assert sale.portion_carb_g == 71.8
+    assert sale.portion_fiber_g == 3.9
     assert sale.info_source == "table"
 
 

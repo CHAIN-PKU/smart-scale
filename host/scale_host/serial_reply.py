@@ -8,10 +8,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from scale_host.device.interface import DisplayRequest
 from scale_host.device.serial_device import SerialScaleDevice
 from scale_host.domain import ScaleStatus, WeightReading
-from scale_host.pipeline import DEMO_TIMESTAMP, session_from_sale
+from scale_host.pipeline import DEMO_TIMESTAMP, display_request_for, session_from_sale
 from scale_host.reply_sale import sale_from_replies
 from scale_host.serial_replay import BANANA_LINES, ScriptedPort
 from scale_host.storage import SqliteRepository, WeighingSession
@@ -53,9 +52,7 @@ async def price_scripted_replies(
         if reading is None:
             raise RuntimeError("no stable weight")
         sale = sale_from_replies(_IDENTIFY_REPLY, _PRICE_REPLY, "banana.jpg", reading)
-        await device.display(
-            DisplayRequest(product=sale.label, weight_g=sale.weight_g, price=sale.amount_yuan)
-        )
+        await device.display(display_request_for(sale))
         session = session_from_sale(
             sale,
             session_id=session_id,

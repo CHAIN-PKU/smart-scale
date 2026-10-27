@@ -85,7 +85,7 @@ def _reset_quote() -> ItemQuote:
 
 
 def placement_notices(sales: list[Sale]) -> list[tuple[str, str]]:
-    """One display line and one spoken line per sale. Nutrition stays off both."""
+    """One display line and one spoken line per sale. Speech stays name, grams, and yuan."""
 
     notices: list[tuple[str, str]] = []
     for index, sale in enumerate(sales, start=1):

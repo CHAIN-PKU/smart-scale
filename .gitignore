@@ -17,6 +17,8 @@ __pycache__/
 *.uvguix.*
 *.uvoptx
 *.build_log.htm
+firmware/MDK-ARM/*.log
+.embeddedskills/
 *.dep
 *.crf
 *.o
@@ -26,6 +28,10 @@ __pycache__/
 *.map
 *.lnp
 JLinkLog.txt
+
+data/live/
+models/*.onnx
+board/
 
 Thumbs.db
 Desktop.ini

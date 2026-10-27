@@ -22,6 +22,7 @@ class ItemQuote(BaseModel):
     price_per_kg: float = Field(ge=0)
     kcal_per_100g: float | None = Field(default=None, ge=0)
     carb_per_100g: float | None = Field(default=None, ge=0)
+    fiber_per_100g: float | None = Field(default=None, ge=0)
     summary: str = ""
     vision_source: str = Field(min_length=1)
     info_source: str = Field(min_length=1)
@@ -41,11 +42,12 @@ def identify_and_price(
     if info.price_per_kg is None:
         raise RuntimeError(f"no unit price for {recognition.label}")
     return ItemQuote(
-        label=recognition.label,
+        label=info.label,
         confidence=recognition.confidence,
         price_per_kg=info.price_per_kg,
         kcal_per_100g=info.kcal_per_100g,
         carb_per_100g=info.carb_per_100g,
+        fiber_per_100g=info.fiber_per_100g,
         summary=info.summary,
         vision_source=recognition.source,
         info_source=info.source,

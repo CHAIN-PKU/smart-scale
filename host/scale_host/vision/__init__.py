@@ -8,6 +8,7 @@ from scale_host.vision.interface import (
     build_vision,
 )
 from scale_host.vision.siliconflow import SiliconFlowVision, label_from_reply
+from scale_host.vision.yolo import YoloVision
 
 __all__ = [
     "MiniMaxVision",
@@ -15,6 +16,7 @@ __all__ = [
     "SiliconFlowVision",
     "VisionProvider",
     "VolcanoVision",
+    "YoloVision",
     "build_vision",
     "label_from_reply",
 ]

@@ -22,6 +22,7 @@ def _session_from_row(row: tuple) -> WeighingSession:
         amount_yuan=row[9],
         portion_kcal=row[10],
         portion_carb_g=row[11],
+        portion_fiber_g=row[12],
     )
 
 
@@ -32,6 +33,7 @@ class SqliteRepository:
         with self._connect() as connection:
             connection.executescript(_SCHEMA)
             _ensure_sale_columns(connection)
+            _ensure_receipt_columns(connection)
 
     def save_session(self, session: WeighingSession) -> None:
         with self._connect() as connection:
@@ -39,8 +41,8 @@ class SqliteRepository:
                 """
                 INSERT INTO weighing_sessions (
                     id, timestamp, weight_g, image_path, product_id, confidence, model_name,
-                    label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g, portion_fiber_g
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session.id,
@@ -55,6 +57,7 @@ class SqliteRepository:
                     session.amount_yuan,
                     session.portion_kcal,
                     session.portion_carb_g,
+                    session.portion_fiber_g,
                 ),
             )
 
@@ -63,7 +66,7 @@ class SqliteRepository:
             row = connection.execute(
                 """
                 SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name,
-                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
+                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g, portion_fiber_g
                 FROM weighing_sessions WHERE id = ?
                 """,
                 (session_id,),
@@ -77,7 +80,7 @@ class SqliteRepository:
             rows = connection.execute(
                 """
                 SELECT id, timestamp, weight_g, image_path, product_id, confidence, model_name,
-                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g
+                       label, price_per_kg, amount_yuan, portion_kcal, portion_carb_g, portion_fiber_g
                 FROM weighing_sessions
                 ORDER BY timestamp DESC, id DESC
                 LIMIT ?
@@ -154,6 +157,21 @@ class SqliteRepository:
             for row in rows
         ]
 
+    def list_receipt_lines(self) -> list[tuple[str, float, float, float]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT product, weight_g, price, COALESCE(price_per_kg, 0) FROM receipt_lines ORDER BY id"
+            ).fetchall()
+        return [(row[0], row[1], row[2], row[3]) for row in rows]
+
+    def replace_receipt_lines(self, lines: list[tuple[str, float, float, float]]) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM receipt_lines")
+            connection.executemany(
+                "INSERT INTO receipt_lines (product, weight_g, price, price_per_kg) VALUES (?, ?, ?, ?)",
+                lines,
+            )
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path)
         connection.execute("PRAGMA foreign_keys = ON")
@@ -168,9 +186,16 @@ def _ensure_sale_columns(connection: sqlite3.Connection) -> None:
         ("amount_yuan", "REAL"),
         ("portion_kcal", "REAL"),
         ("portion_carb_g", "REAL"),
+        ("portion_fiber_g", "REAL"),
     ):
         if name not in present:
             connection.execute(f"ALTER TABLE weighing_sessions ADD COLUMN {name} {kind}")
+
+
+def _ensure_receipt_columns(connection: sqlite3.Connection) -> None:
+    present = {row[1] for row in connection.execute("PRAGMA table_info(receipt_lines)")}
+    if "price_per_kg" not in present:
+        connection.execute("ALTER TABLE receipt_lines ADD COLUMN price_per_kg REAL")
 
 
 _SCHEMA = """
@@ -196,6 +221,7 @@ CREATE TABLE IF NOT EXISTS weighing_sessions (
     amount_yuan REAL,
     portion_kcal REAL,
     portion_carb_g REAL,
+    portion_fiber_g REAL,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
@@ -213,5 +239,13 @@ CREATE TABLE IF NOT EXISTS device_events (
     device_id TEXT NOT NULL,
     event_type TEXT NOT NULL,
     payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS receipt_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product TEXT NOT NULL,
+    weight_g REAL NOT NULL,
+    price REAL NOT NULL,
+    price_per_kg REAL NOT NULL
 );
 """

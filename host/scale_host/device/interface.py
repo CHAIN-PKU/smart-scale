@@ -20,6 +20,10 @@ class DisplayRequest(BaseModel):
     product: str = Field(min_length=1, max_length=64)
     weight_g: float
     price: float = Field(ge=0)
+    price_per_kg: float | None = Field(default=None, ge=0)
+    portion_kcal: float | None = Field(default=None, ge=0)
+    portion_carb_g: float | None = Field(default=None, ge=0)
+    portion_fiber_g: float | None = Field(default=None, ge=0)
 
 
 class CommandResult(BaseModel):

@@ -116,7 +116,7 @@ vision: disabled
 | `host/scale_host/long_line.py` | 丢掉超过 512 字节的一行，后面的稳定重量仍然计价 |
 | `host/scale_host/boot_capture.py` | 重放 2026-10-11 的 `BOOT`、`READY`、`ERROR` 和一行 `#` 调试。不计价。不打开 COM |
 | `host/scale_host/speech.py` | 用电脑扬声器念商品名、克数和金额。念不出来仍留下金额。不打开 COM |
-| `host/scale_host/demo_card.py` | 对照页的正式屏幕取放稳时的当前画面。热量和碳水留在这一页，不发给板子 |
+| `host/scale_host/demo_card.py` | 对照页的正式屏幕取放稳时的当前画面。热量、碳水和名称、单价、重量、金额画在同一屏 |
 | `host/scale_host/live_view.py` | 放稳时识别当前画面并出价。问上次称重时读最新的一条记录 |
 | `host/scale_host/pipeline.py` | 把这次金额写入 SQLite，再读出来打印。串口上的稳定重量也走这里 |
 | `host/scale_host/storage/records.py` | 一次称重、一条纠错、一条设备事件的数据形状。称重里可以带名称、单价和金额 |
@@ -127,6 +127,7 @@ vision: disabled
 | `host/scale_host/ui/.gitkeep` | 界面以后放这里。现在只有控制台 |
 | `scripts/setup.ps1` | 创建 `.venv` 并安装依赖 |
 | `scripts/run_host.ps1` | 启动主机 |
+| `scripts/run_board.ps1` | OpenMV 最新画面用 YOLO11n 认名字，短表算出单价和营养，再发给秤的串口。默认相机 COM5、秤 COM3 |
 | `scripts/run_simulator.ps1` | 播放场景，默认香蕉 |
 | `scripts/run_quote.ps1` | 用模拟识别和模拟查价打出香蕉单价。不联网 |
 | `scripts/run_sale.ps1` | 用假秤的稳定重量算出香蕉金额 3.92 元 |

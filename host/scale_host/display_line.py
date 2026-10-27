@@ -35,8 +35,12 @@ def display_line(sale: Sale, request_id: str) -> str:
         product=sale.label,
         weight_g=sale.weight_g,
         price=sale.amount_yuan,
+        price_per_kg=sale.price_per_kg,
+        portion_kcal=sale.portion_kcal,
+        portion_carb_g=sale.portion_carb_g,
+        portion_fiber_g=sale.portion_fiber_g,
     )
-    return message.model_dump_json()
+    return message.model_dump_json(exclude_none=True)
 
 
 def main() -> None:

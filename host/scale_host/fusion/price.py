@@ -23,6 +23,7 @@ class Sale(BaseModel):
     amount_yuan: float = Field(ge=0)
     portion_kcal: float | None = Field(default=None, ge=0)
     portion_carb_g: float | None = Field(default=None, ge=0)
+    portion_fiber_g: float | None = Field(default=None, ge=0)
     vision_source: str = Field(min_length=1)
     info_source: str = Field(min_length=1)
     image_path: str = Field(min_length=1)
@@ -43,8 +44,11 @@ def portion_from_100g(weight_g: float, per_100g: float) -> float:
 
 
 def fuse(reading: WeightReading, quote: ItemQuote) -> Sale:
+    state = reading.state
+    if state is None and reading.stable and reading.status == "ok" and reading.weight_g > 0:
+        state = ScaleStatus.WEIGHT_STABLE
     ready = (
-        reading.state is ScaleStatus.WEIGHT_STABLE
+        state is ScaleStatus.WEIGHT_STABLE
         and reading.stable
         and reading.status == "ok"
         and reading.weight_g > 0
@@ -53,10 +57,13 @@ def fuse(reading: WeightReading, quote: ItemQuote) -> Sale:
         raise RuntimeError("weight is not ready to price")
     portion_kcal = None
     portion_carb_g = None
+    portion_fiber_g = None
     if quote.kcal_per_100g is not None:
         portion_kcal = portion_from_100g(reading.weight_g, quote.kcal_per_100g)
     if quote.carb_per_100g is not None:
         portion_carb_g = portion_from_100g(reading.weight_g, quote.carb_per_100g)
+    if quote.fiber_per_100g is not None:
+        portion_fiber_g = portion_from_100g(reading.weight_g, quote.fiber_per_100g)
     return Sale(
         label=quote.label,
         confidence=quote.confidence,
@@ -65,10 +72,15 @@ def fuse(reading: WeightReading, quote: ItemQuote) -> Sale:
         amount_yuan=yuan_amount(reading.weight_g, quote.price_per_kg),
         portion_kcal=portion_kcal,
         portion_carb_g=portion_carb_g,
+        portion_fiber_g=portion_fiber_g,
         vision_source=quote.vision_source,
         info_source=quote.info_source,
         image_path=quote.image_path,
     )
+
+
+# An empty tray still reports about 1.5 g. That is not a placement.
+_MIN_PLACEMENT_G = 5.0
 
 
 class PlacementPricer:
@@ -76,6 +88,31 @@ class PlacementPricer:
 
     def __init__(self) -> None:
         self._priced = False
+
+    def release_if_removed(self, reading: WeightReading) -> None:
+        if reading.state in (ScaleStatus.WEIGHT_REMOVED, ScaleStatus.ZERO):
+            self._priced = False
+
+    def waiting_for_new_sale(self, reading: WeightReading) -> bool:
+        if self._priced:
+            return False
+        loaded = (
+            reading.stable
+            and reading.status == "ok"
+            and reading.weight_g >= _MIN_PLACEMENT_G
+        )
+        if not loaded:
+            return False
+        # The board sends WEIGHT_STABLE only when the state changes. Connecting
+        # while the item is already still leaves state unknown, but the weight
+        # line itself is marked stable.
+        if reading.state is None:
+            return True
+        return reading.state is ScaleStatus.WEIGHT_STABLE
+
+    def decline(self) -> None:
+        """This placement will not be priced. Removal allows the next one."""
+        self._priced = True
 
     def consider(self, reading: WeightReading, quote: ItemQuote) -> Sale | None:
         if reading.state in (ScaleStatus.WEIGHT_REMOVED, ScaleStatus.ZERO):

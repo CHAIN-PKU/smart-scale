@@ -6,7 +6,7 @@ import asyncio
 import json
 import sys
 
-from scale_host.device.interface import DisplayRequest
+from scale_host.pipeline import display_request_for
 from scale_host.device.serial_device import SerialScaleDevice
 from scale_host.domain import ScaleStatus, WeightReading
 from scale_host.reply_sale import sale_from_replies
@@ -51,13 +51,7 @@ async def price_once_then_stop(port: ScriptedPort) -> tuple[int, float, bool]:
             if not ready:
                 continue
             sale = sale_from_replies(_IDENTIFY_REPLY, _PRICE_REPLY, "banana.jpg", event)
-            await device.display(
-                DisplayRequest(
-                    product=sale.label,
-                    weight_g=sale.weight_g,
-                    price=sale.amount_yuan,
-                )
-            )
+            await device.display(display_request_for(sale))
             priced = True
         if not port.outgoing:
             raise RuntimeError("no display line")

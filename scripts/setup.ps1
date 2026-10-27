@@ -13,4 +13,4 @@ if (-not (Test-Path "$Root\.venv\Scripts\python.exe")) {
 }
 
 & "$Root\.venv\Scripts\python.exe" -m pip install -U pip
-& "$Root\.venv\Scripts\python.exe" -m pip install -e ".[dev]"
+& "$Root\.venv\Scripts\python.exe" -m pip install -e ".[dev,board]"

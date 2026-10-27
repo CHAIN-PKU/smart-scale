@@ -14,6 +14,7 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
         "product: banana",
         "weight_g: 326.4",
         "price: 3.92",
+        "price_per_kg: 12",
         "frame: live-frame",
         "recognized_when: WEIGHT_STABLE",
         "tft: 3.2 TFT SPI 240×320 v1.0",
@@ -21,17 +22,23 @@ def test_card_splits_the_screen_line_from_nutrition(monkeypatch) -> None:
         "screen_photo: 香蕉、326.4克、3.92元",
         "formal_screen:",
         "香蕉",
+        "每千克 12 元",
         "326.4 克",
         "3.92 元",
+        "297 千卡",
+        "碳水 71.8 克",
+        "膳食纤维 3.9 克",
         "computer:",
         "portion_kcal: 297.0",
         "portion_carb_g: 71.8",
+        "portion_fiber_g: 3.9",
         "spoken_line: 香蕉，326.4克，3.92元",
-        "screen_answer: 香蕉、326.4克、3.92元",
+        "screen_answer: 香蕉、每千克12元、326.4克、3.92元、297千卡、碳水71.8克、膳食纤维3.9克",
         "real_weight_g: 220.3",
         "real_amount_yuan: 2.64",
         "real_portion_kcal: 200.5",
         "real_portion_carb_g: 48.5",
+        "real_portion_fiber_g: 2.6",
         "sent_to_internet: no",
         "com_open: no",
     ]
@@ -46,8 +53,8 @@ def test_page_keeps_the_real_weighing_apart_from_the_simulated_one() -> None:
     assert "3.92 元" in page
     assert "发给板子的 product 仍是 banana" in page
     assert "电脑会念：香蕉，326.4克，3.92元" in page
-    assert "问「屏幕上是什么」时回答：香蕉、326.4克、3.92元" in page
-    assert "热量和碳水不念" in page
+    assert "问「屏幕上是什么」时回答：香蕉、每千克12元、326.4克、3.92元、297千卡、碳水71.8克、膳食纤维3.9克" in page
+    assert "营养不念" in page
     assert "220.3 克" in page
     assert "2.64 元" in page
     real = page.split("真秤已经测过", 1)[1]
@@ -55,10 +62,10 @@ def test_page_keeps_the_real_weighing_apart_from_the_simulated_one() -> None:
     assert "碳水 48.5 克" in real
     formal = page.split("这次模拟的一屏", 1)[0]
     assert "200.5" not in formal
-    assert "当前画面" in formal
+    assert "名称和金额更大" in formal
     assert "3.2 TFT SPI 240×320 v1.0" in formal
-    assert "2026-10-27 这块屏已经点亮，能显示克重" in formal
-    assert "实拍是香蕉、326.4克、3.92元，和上面三行一致" in formal
+    assert "2026-10-27 这块屏已经点亮" in formal
+    assert "实拍是香蕉、326.4克、3.92元，那是当时的三行" in formal
     assert "openmv_banana.jpg" not in formal
     assert "演示香蕉" in page
     assert "http://" not in page

@@ -21,6 +21,7 @@ def test_recognized_banana_uses_the_simulated_weight(monkeypatch) -> None:
     assert sale.amount_yuan == 3.92
     assert sale.portion_kcal == 297.0
     assert sale.portion_carb_g == 71.8
+    assert sale.portion_fiber_g == 3.9
 
 
 def test_recognized_sale_command_stays_offline(capsys, monkeypatch) -> None:
@@ -40,6 +41,7 @@ def test_recognized_sale_command_stays_offline(capsys, monkeypatch) -> None:
         "amount_yuan: 3.92",
         "portion_kcal: 297.0",
         "portion_carb_g: 71.8",
+        "portion_fiber_g: 3.9",
         "sent_to_internet: no",
         "com_open: no",
     ]

@@ -6,17 +6,19 @@ import asyncio
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
 
+from scale_host.camera import OpenMvCamera
 from scale_host.device.serial_device import LinePort, SerialOpenError, open_system_port
-from scale_host.pipeline import price_open_port, record_stable_sale
+from scale_host.pipeline import record_stable_sale, serve_open_port
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
 from scale_host.storage import SqliteRepository, WeighingSession
 
 _DEVICES = {"simulator", "serial"}
-_VISION = {"disabled", "mock", "minimax", "volcano", "siliconflow"}
+_VISION = {"disabled", "mock", "minimax", "volcano", "siliconflow", "yolo"}
 _PRODUCT_INFO = {"disabled", "mock", "text", "table"}
 
 
@@ -44,25 +46,58 @@ def main() -> None:
     print(f"device: {device_name}")
     print(f"vision: {vision_name}")
     print(f"product_info: {product_info_name}")
+    if vision_name == "yolo":
+        from scale_host.vision.yolo import model_path
+
+        weights = model_path()
+        if not weights.is_file():
+            print(f"missing yolo model: {weights}", file=sys.stderr)
+            raise SystemExit(2)
     if device_name == "serial":
         port_name = os.getenv("SERIAL_PORT", "").strip()
         print(f"serial_port: {port_name}")
+        camera = _start_openmv()
         try:
-            opened = open_system_port(port_name)
-        except SerialOpenError:
-            print(f"cannot open serial port: {port_name}", file=sys.stderr)
-            raise SystemExit(2)
-        print("serial_open: ok")
-        if vision_name == "disabled" or product_info_name == "disabled":
-            opened.close()
-            return
-        try:
-            _print_recorded_sale_from_port(opened)
+            try:
+                opened = open_system_port(port_name)
+            except SerialOpenError:
+                print(f"cannot open serial port: {port_name}", file=sys.stderr)
+                raise SystemExit(2)
+            print("serial_open: ok")
+            if vision_name == "disabled" or product_info_name == "disabled":
+                opened.close()
+                return
+            try:
+                _print_recorded_sale_from_port(opened)
+            finally:
+                opened.close()
         finally:
-            opened.close()
+            if camera is not None:
+                camera.stop()
         return
     if device_name == "simulator" and vision_name != "disabled" and product_info_name != "disabled":
         _print_recorded_sale()
+
+
+def _start_openmv() -> OpenMvCamera | None:
+    port_name = os.getenv("OPENMV_PORT", "").strip()
+    if not port_name:
+        return None
+    frame = os.getenv("SCALE_FRAME", "").strip()
+    if not frame:
+        frame = str((Path.cwd() / "data" / "live" / "last_frame.jpg").resolve())
+        os.environ["SCALE_FRAME"] = frame
+    os.environ.setdefault("SCALE_FRAME_MAX_AGE_S", "2")
+    camera = OpenMvCamera(port_name, Path(frame))
+    print(f"openmv_port: {port_name}")
+    try:
+        camera.start()
+    except (OSError, RuntimeError, TimeoutError) as exc:
+        print(str(exc), file=sys.stderr)
+        camera.stop()
+        raise SystemExit(2) from exc
+    print("openmv_frame: ok")
+    return camera
 
 
 def _print_recorded_sale_from_port(port: LinePort) -> None:
@@ -71,13 +106,17 @@ def _print_recorded_sale_from_port(port: LinePort) -> None:
     timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
     try:
         asyncio.run(
-            price_open_port(port, repository, session_id=session_id, timestamp=timestamp)
+            serve_open_port(
+                port,
+                repository,
+                session_id=session_id,
+                timestamp=timestamp,
+                on_sale=_print_stored,
+            )
         )
-        stored = repository.get_session(session_id)
     except (RuntimeError, MissingApiKey, RemoteCallNotReady) as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(2) from exc
-    _print_stored(stored)
 
 
 def _print_stored(stored: WeighingSession | None) -> None:
@@ -92,6 +131,8 @@ def _print_stored(stored: WeighingSession | None) -> None:
         print(f"portion_kcal: {stored.portion_kcal}")
     if stored.portion_carb_g is not None:
         print(f"portion_carb_g: {stored.portion_carb_g}")
+    if stored.portion_fiber_g is not None:
+        print(f"portion_fiber_g: {stored.portion_fiber_g}")
     print(f"stored: {stored.id}")
 
 
