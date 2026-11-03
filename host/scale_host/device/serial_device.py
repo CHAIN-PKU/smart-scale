@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Protocol
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from scale_host.domain import ScaleStatus, WeightReading
 from scale_host.protocol.messages import (
     AckMessage,
     CommandMessage,
+    QueryMessage,
     DisplayResultMessage,
     ProtocolError,
     ReceiptResultMessage,
@@ -57,6 +59,9 @@ class SerialScaleDevice:
             if isinstance(message, CommandMessage):
                 yield message
                 continue
+            if isinstance(message, QueryMessage):
+                yield message
+                continue
             if isinstance(message, WeightMessage):
                 yield _reading(message, self._state)
 
@@ -89,6 +94,12 @@ class SerialScaleDevice:
             )
         )
 
+    def write_json(self, payload: dict) -> None:
+        if not self._connected:
+            return
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        self._port.write(text.encode("utf-8") + b"\n")
+
     def write_message(self, message: AckMessage | ReceiptResultMessage) -> None:
         if not self._connected:
             return
@@ -108,12 +119,14 @@ class SerialScaleDevice:
                 text = raw.decode("utf-8")
             except UnicodeDecodeError:
                 continue
+            if text.startswith("wifi:"):
+                print(text.strip(), flush=True)
             try:
                 message = parse_line(text)
             except ProtocolError:
                 continue
             if message is None or isinstance(
-                message, (WeightMessage, StatusMessage, AckMessage, CommandMessage)
+                message, (WeightMessage, StatusMessage, AckMessage, CommandMessage, QueryMessage)
             ):
                 return message
         return _CLOSED
@@ -152,7 +165,12 @@ class PyserialPort:
         self._handle.write(data)  # type: ignore[attr-defined]
 
     def readline(self) -> bytes:
-        return self._handle.readline()  # type: ignore[attr-defined]
+        while True:
+            data = self._handle.readline()  # type: ignore[attr-defined]
+            if data:
+                return data
+            if not self._handle.is_open:  # type: ignore[attr-defined]
+                return b""
 
     def close(self) -> None:
         self._handle.close()  # type: ignore[attr-defined]
@@ -162,15 +180,19 @@ def open_system_port(name: str) -> PyserialPort:
     import serial
 
     try:
-        handle = serial.Serial(
-            port=name,
-            baudrate=115200,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=1,
-            write_timeout=1,
-        )
+        handle = serial.Serial()
+        handle.port = name
+        handle.baudrate = 115200
+        handle.bytesize = serial.EIGHTBITS
+        handle.parity = serial.PARITY_NONE
+        handle.stopbits = serial.STOPBITS_ONE
+        handle.timeout = 1
+        handle.write_timeout = 1
+        handle.dtr = False
+        handle.rts = False
+        handle.open()
+        handle.dtr = False
+        handle.rts = False
     except (serial.SerialException, OSError) as exc:
         raise SerialOpenError(name) from exc
     return PyserialPort(handle)

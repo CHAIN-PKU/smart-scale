@@ -94,6 +94,13 @@ class CommandMessage(BaseModel):
     command: Literal["tare", "save", "receipt", "clear"]
 
 
+class QueryMessage(BaseModel):
+    model_config = _MODEL_CONFIG
+    v: Literal[1]
+    type: Literal["query"]
+    query: str = Field(min_length=1, max_length=32)
+
+
 class DisplayResultMessage(BaseModel):
     model_config = _MODEL_CONFIG
     v: Literal[1]
@@ -130,6 +137,7 @@ Message = Union[
     StatusMessage,
     AckMessage,
     CommandMessage,
+    QueryMessage,
     DisplayResultMessage,
     ReceiptResultMessage,
 ]
@@ -139,6 +147,7 @@ _MODELS: dict[str, type[BaseModel]] = {
     "status": StatusMessage,
     "ack": AckMessage,
     "command": CommandMessage,
+    "query": QueryMessage,
     "display_result": DisplayResultMessage,
     "receipt_result": ReceiptResultMessage,
 }

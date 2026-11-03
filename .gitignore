@@ -31,7 +31,8 @@ JLinkLog.txt
 
 data/live/
 models/*.onnx
-board/
+**/flash_log*.txt
+**/build_log.txt
 
 Thumbs.db
 Desktop.ini

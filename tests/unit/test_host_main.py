@@ -130,6 +130,29 @@ def test_serial_prices_this_photo_with_the_scale_weight(capsys, monkeypatch, tmp
     assert stored is not None
     assert stored.image_path == str(photo)
     assert port.closed is True
+    assert not any(line.startswith("desk:") for line in lines)
+
+
+def test_serial_desk_prints_the_live_page(capsys, monkeypatch, tmp_path) -> None:
+    from scale_host.serial_replay import BANANA_LINES, ScriptedPort
+
+    photo = tmp_path / "placement.jpg"
+    photo.write_bytes(b"jpg")
+    monkeypatch.setenv("SCALE_DEVICE", "serial")
+    monkeypatch.setenv("SERIAL_PORT", "COM3")
+    monkeypatch.setenv("VISION_PROVIDER", "mock")
+    monkeypatch.setenv("PRODUCT_INFO_PROVIDER", "table")
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "scale.db"))
+    monkeypatch.setenv("SCALE_FRAME", str(photo))
+    monkeypatch.setenv("DESK", "1")
+    monkeypatch.setenv("DESK_HOST", "127.0.0.1")
+    monkeypatch.setenv("DESK_PORT", "0")
+    port = ScriptedPort(BANANA_LINES)
+    monkeypatch.setattr("scale_host.main.open_system_port", lambda name: port)
+    main()
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("desk: http://127.0.0.1:") for line in lines)
+    assert port.closed is True
 
 
 def test_serial_open_failure_stops_the_host(monkeypatch, capsys) -> None:

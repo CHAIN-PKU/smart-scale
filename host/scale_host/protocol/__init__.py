@@ -3,6 +3,7 @@
 from scale_host.protocol.messages import (
     AckMessage,
     CommandMessage,
+    QueryMessage,
     DisplayResultMessage,
     Message,
     ProtocolError,
@@ -16,6 +17,7 @@ from scale_host.protocol.messages import (
 __all__ = [
     "AckMessage",
     "CommandMessage",
+    "QueryMessage",
     "DisplayResultMessage",
     "Message",
     "ProtocolError",

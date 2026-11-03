@@ -16,7 +16,8 @@ from scale_host.device.serial_device import LinePort, SerialScaleDevice
 from scale_host.domain import ScaleStatus, WeightReading
 from scale_host.fusion import PlacementPricer, Sale, fuse
 from scale_host.frames import current_frame
-from scale_host.protocol.messages import AckMessage, CommandMessage
+from scale_host.protocol.messages import AckMessage, CommandMessage, QueryMessage
+from scale_host.remote_query import wifi_page
 from scale_host.providers import MissingApiKey, RemoteCallNotReady
 from scale_host.quote import DEMO_IMAGE, identify_and_price
 from scale_host.receipt import ReceiptBook
@@ -121,10 +122,15 @@ async def serve_open_port(
     book = ReceiptBook.from_rows(repository.list_receipt_lines())
     pricer = PlacementPricer()
     priced = 0
+    answered = 0
     missed_frame: tuple[str, int] | None = None
     await device.connect()
     try:
         async for event in device.events():
+            if isinstance(event, QueryMessage):
+                device.write_json(wifi_page(repository, event.query))
+                answered += 1
+                continue
             if isinstance(event, CommandMessage):
                 if event.command not in _BOARD_COMMANDS:
                     continue
@@ -172,7 +178,7 @@ async def serve_open_port(
             repository.save_session(session)
             if on_sale is not None:
                 on_sale(session)
-        if priced == 0:
+        if priced == 0 and answered == 0:
             raise RuntimeError("no stable weight")
     finally:
         await device.disconnect()

@@ -57,6 +57,8 @@ def main() -> None:
         port_name = os.getenv("SERIAL_PORT", "").strip()
         print(f"serial_port: {port_name}")
         camera = _start_openmv()
+        desk = None
+        bluetooth = None
         try:
             try:
                 opened = open_system_port(port_name)
@@ -68,8 +70,14 @@ def main() -> None:
                 opened.close()
                 return
             try:
+                desk = _start_desk()
+                bluetooth = _start_bluetooth()
                 _print_recorded_sale_from_port(opened)
             finally:
+                if bluetooth is not None:
+                    bluetooth.stop()
+                if desk is not None:
+                    desk.stop()
                 opened.close()
         finally:
             if camera is not None:
@@ -77,6 +85,44 @@ def main() -> None:
         return
     if device_name == "simulator" and vision_name != "disabled" and product_info_name != "disabled":
         _print_recorded_sale()
+
+
+def _start_desk():
+    if os.getenv("DESK", "").strip() != "1":
+        return None
+    from scale_host.desk import Desk
+
+    frame = os.getenv("SCALE_FRAME", "").strip()
+    if not frame:
+        frame = str((Path.cwd() / "data" / "live" / "last_frame.jpg").resolve())
+    port = int(os.getenv("DESK_PORT", "8765"))
+    host = os.getenv("DESK_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    repository = SqliteRepository(os.getenv("DATABASE_PATH", "data/scale.db"))
+    desk = Desk(repository, Path(frame), port, host)
+    try:
+        desk.start()
+    except OSError as exc:
+        print(f"desk: {exc}", file=sys.stderr)
+        return None
+    print(f"desk: {desk.url}", flush=True)
+    for extra in desk.lan_urls:
+        print(f"desk_lan: {extra}", flush=True)
+    return desk
+
+
+def _start_bluetooth():
+    port_name = os.getenv("BT_PORT", "").strip()
+    if not port_name:
+        return None
+    from scale_host.bt_query import BluetoothQuery
+
+    baud = int(os.getenv("BT_BAUD", "9600"))
+    repository = SqliteRepository(os.getenv("DATABASE_PATH", "data/scale.db"))
+    link = BluetoothQuery(repository, port_name, baud)
+    link.start()
+    print(f"bluetooth: {port_name}")
+    print(f"bluetooth_baud: {baud}")
+    return link
 
 
 def _start_openmv() -> OpenMvCamera | None:
