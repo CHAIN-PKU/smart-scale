@@ -27,6 +27,9 @@ typedef struct
 } TftLastPrice_t;
 
 static TftLastPrice_t s_last_price;
+static uint8_t s_view = TFT_VIEW_WEIGHT;
+static uint8_t s_receipt_count;
+static float s_receipt_total;
 
 /*---------------------------------------------------------------------------*/
 /* 底层：命令 / 数据                                                          */
@@ -567,27 +570,11 @@ static void tft_draw_orange_icon(uint16_t accent)
 
 static void tft_draw_banana_icon(uint16_t accent)
 {
-    int16_t x;
-    int16_t y;
-
-    for (y = 34; y <= 73; y++)
-    {
-        for (x = 92; x <= 145; x++)
-        {
-            int16_t nx = (int16_t)((x - 118) / 24);
-            int16_t ny = (int16_t)((y - 54) / 15);
-            int16_t outer = (int16_t)(nx * nx + ny * ny);
-            int16_t ix = (int16_t)((x - 130) / 24);
-            int16_t iy = (int16_t)((y - 47) / 14);
-            int16_t inner = (int16_t)(ix * ix + iy * iy);
-            if ((outer <= 1) && (inner > 1) && (x < 141))
-            {
-                tft_fill_rect(x, y, x, y, accent);
-            }
-        }
-    }
-    tft_fill_rect(92, 68, 98, 71, UI_ORANGE_DARK);
-    tft_fill_rect(139, 37, 145, 40, UI_GREEN);
+    /* 两圆相减得到月牙。逐点整数除法只会留下一小块。 */
+    tft_fill_circle(108, 58, 22, accent);
+    tft_fill_circle(124, 48, 16, UI_BG);
+    tft_fill_rect(90, 68, 100, 73, UI_ORANGE_DARK);
+    tft_fill_rect(126, 36, 136, 42, UI_GREEN);
 }
 
 static void tft_draw_product_icon(const char *product, uint16_t accent)
@@ -612,20 +599,14 @@ static void tft_draw_check_mark(void)
 static void tft_draw_basket(int16_t cx, int16_t y, uint16_t color, uint8_t filled,
                             const char *product)
 {
-    int16_t i;
-
-    tft_draw_thick_line((int16_t)(cx - 52), y, (int16_t)(cx + 52), y, 4, color);
-    tft_draw_thick_line((int16_t)(cx - 52), y, (int16_t)(cx - 36), (int16_t)(y + 56), 3, color);
-    tft_draw_thick_line((int16_t)(cx + 52), y, (int16_t)(cx + 36), (int16_t)(y + 56), 3, color);
-    tft_draw_thick_line((int16_t)(cx - 36), (int16_t)(y + 56),
-                        (int16_t)(cx + 36), (int16_t)(y + 56), 3, color);
-    for (i = -24; i <= 24; i = (int16_t)(i + 24))
-    {
-        tft_draw_thick_line((int16_t)(cx + i / 3), (int16_t)(y + 8),
-                            (int16_t)(cx + i), (int16_t)(y + 56), 1, color);
-    }
-    tft_draw_thick_line((int16_t)(cx - 30), (int16_t)(y + 28),
-                        (int16_t)(cx + 30), (int16_t)(y + 28), 2, color);
+    tft_fill_rect((int16_t)(cx - 52), (int16_t)(y - 2), (int16_t)(cx + 52), (int16_t)(y + 2), color);
+    tft_fill_rect((int16_t)(cx - 50), y, (int16_t)(cx - 44), (int16_t)(y + 56), color);
+    tft_fill_rect((int16_t)(cx + 44), y, (int16_t)(cx + 50), (int16_t)(y + 56), color);
+    tft_fill_rect((int16_t)(cx - 44), (int16_t)(y + 52), (int16_t)(cx + 44), (int16_t)(y + 58), color);
+    tft_fill_rect((int16_t)(cx - 16), (int16_t)(y + 8), (int16_t)(cx - 14), (int16_t)(y + 52), color);
+    tft_fill_rect(cx, (int16_t)(y + 8), (int16_t)(cx + 2), (int16_t)(y + 52), color);
+    tft_fill_rect((int16_t)(cx + 14), (int16_t)(y + 8), (int16_t)(cx + 16), (int16_t)(y + 52), color);
+    tft_fill_rect((int16_t)(cx - 30), (int16_t)(y + 26), (int16_t)(cx + 30), (int16_t)(y + 29), color);
 
     if (filled != 0U)
     {
@@ -707,8 +688,19 @@ static void tft_draw_base(uint16_t accent)
 /**
   * @brief  开机显示等待状态
   */
+void TFT_Mark(uint8_t view)
+{
+    s_view = view;
+    if (view == TFT_VIEW_CLEARED)
+    {
+        s_receipt_count = 0U;
+        s_receipt_total = 0.0f;
+    }
+}
+
 void TFT_ShowWeight(float weight_g)
 {
+    s_view = TFT_VIEW_WEIGHT;
     tft_draw_base(UI_ORANGE);
     tft_draw_orange_icon(UI_ORANGE);
     tft_str("READY", 80U, 79U, 2U, UI_CREAM, UI_BG);
@@ -731,6 +723,8 @@ void TFT_ShowResult(const char *product_ascii,
     char unit_price[20];
     char nutrition[24];
     uint16_t y = 254U;
+
+    s_view = TFT_VIEW_RESULT;
 
     if (strcmp(product_ascii, "banana") == 0)
     {
@@ -793,6 +787,15 @@ void TFT_ShowReceipt(const TFT_ReceiptItem *items, uint8_t count, float total)
     uint8_t i;
     uint16_t y = 94U;
 
+    if (count > TFT_RECEIPT_MAX_ITEMS)
+    {
+        count = TFT_RECEIPT_MAX_ITEMS;
+    }
+    s_view = TFT_VIEW_RECEIPT;
+    s_receipt_count = count;
+    s_receipt_total = total;
+    (void)items;
+
     TFT_Fill(UI_BG);
     tft_fill_circle(-20, -10, 84, UI_HEADER);
     tft_draw_header(UI_ORANGE);
@@ -812,11 +815,6 @@ void TFT_ShowReceipt(const TFT_ReceiptItem *items, uint8_t count, float total)
         tft_cn(190U, 72U, 20U, 1U, UI_MUTED, UI_BG);
         tft_cn(206U, 72U, 31U, 1U, UI_MUTED, UI_BG);
         tft_fill_rect(4, 90, 236, 91, UI_EDGE);
-
-        if (count > TFT_RECEIPT_MAX_ITEMS)
-        {
-            count = TFT_RECEIPT_MAX_ITEMS;
-        }
 
         for (i = 0U; i < count; i++)
         {
@@ -869,6 +867,8 @@ void TFT_ShowSaved(void)
     char value[24];
     const char *product = (s_last_price.valid != 0U) ? s_last_price.product : "banana";
 
+    s_view = TFT_VIEW_SAVED;
+
     TFT_Fill(UI_BG);
     tft_draw_header(UI_GREEN);
     tft_draw_check_mark();
@@ -894,6 +894,9 @@ void TFT_ShowSaved(void)
 
 void TFT_ShowCleared(void)
 {
+    s_view = TFT_VIEW_CLEARED;
+    s_receipt_count = 0U;
+    s_receipt_total = 0.0f;
     TFT_Fill(UI_BG);
     tft_draw_header(UI_MUTED);
     tft_cn(40U, 72U, 14U, 2U, UI_CREAM, UI_BG);
@@ -955,4 +958,26 @@ void TFT_PlaySplash(uint8_t tare_applied)
         tft_fill_round_rect(40, 298, (int16_t)(60 + phase * 20), 306, 4, accent);
         HAL_Delay(90U);
     }
+}
+
+void TFT_GetSnap(TFT_Snap *snap)
+{
+    if (snap == NULL)
+    {
+        return;
+    }
+
+    memset(snap, 0, sizeof(*snap));
+    snap->view = s_view;
+    snap->valid = s_last_price.valid;
+    snap->info_flags = s_last_price.info_flags;
+    snap->receipt_count = s_receipt_count;
+    memcpy(snap->product, s_last_price.product, sizeof(snap->product));
+    snap->price_per_kg = s_last_price.price_per_kg;
+    snap->weight_g = s_last_price.weight_g;
+    snap->price = s_last_price.price;
+    snap->kcal = s_last_price.kcal;
+    snap->carb_g = s_last_price.carb_g;
+    snap->fiber_g = s_last_price.fiber_g;
+    snap->receipt_total = s_receipt_total;
 }

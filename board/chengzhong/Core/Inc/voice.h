@@ -16,6 +16,10 @@ void Voice_Say(const uint8_t *data, uint16_t len);      /* 发 GBK/ASCII 字节�
 void Voice_Poll(void);                                   /* 把模块回传的内容打到串口上（调试用） */
 void Voice_SayTest(void);                                /* 上电自检用：念一句固定话 */
 void Voice_SayPrice(const char *product_ascii, float weight_g, float price);
+void Voice_SayTared(void);                              /* 已去皮 */
+void Voice_SaySaved(void);                              /* 已保存 */
+void Voice_SayCleared(void);                            /* 已清空 */
+void Voice_SayReset(void);                              /* 已复位 */
 void Voice_SayWeight(float weight_g);                    /* 只念"三百二十六点四克" */
 void Voice_SetVolume(uint8_t vol);                       /* 1 ~ 4，默认 4 */
 void Voice_SetSpeed(uint8_t spd);                        /* 1 ~ 3，默认 2 */

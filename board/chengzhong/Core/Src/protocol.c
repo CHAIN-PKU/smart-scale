@@ -206,7 +206,7 @@ static uint8_t proto_parse_receipt(const char *json,
     while ((p = strchr(p, '{')) != NULL)
     {
         const char *end = strchr(p, '}');
-        char object[192];
+        static char object[192];
         size_t object_len;
 
         if (end == NULL)
@@ -342,6 +342,43 @@ void Proto_SendCommand(const char *command)
     proto_send_line(buf);
 }
 
+uint8_t Proto_PressTare(void)
+{
+    if (Scale_Tare() == 0U)
+    {
+        return 0U;
+    }
+
+    Scale_SendCurrentStatus();
+    Voice_SayTared();
+    TFT_Mark(TFT_VIEW_WEIGHT);
+    return 1U;
+}
+
+void Proto_PressSave(void)
+{
+    Proto_SendCommand("save");
+    Voice_SaySaved();
+    TFT_Mark(TFT_VIEW_SAVED);
+}
+
+void Proto_PressClear(void)
+{
+    Proto_SendCommand("clear");
+    Voice_SayCleared();
+    TFT_Mark(TFT_VIEW_CLEARED);
+}
+
+void Proto_PressReceipt(void)
+{
+    Proto_SendCommand("receipt");
+}
+
+void Proto_PressReset(void)
+{
+    Voice_SayReset();
+}
+
 void Proto_SendRawDebug(int32_t raw, float grams)
 {
     char buf[96];
@@ -475,11 +512,11 @@ static void proto_handle_line(char *line)
     }
     else if (strcmp(type, "receipt_result") == 0)
     {
-        TFT_ReceiptItem items[TFT_RECEIPT_MAX_ITEMS];
+        static TFT_ReceiptItem items[TFT_RECEIPT_MAX_ITEMS];
         uint8_t count;
         float total;
 
-        if (proto_parse_receipt(line, items, &count, &total) != 0U)
+        if ((Wifi_Busy() == 0U) && (proto_parse_receipt(line, items, &count, &total) != 0U))
         {
             if (count == 0U)
             {
@@ -501,10 +538,14 @@ static void proto_handle_line(char *line)
             (void)proto_json_get(line, "status", status, sizeof(status));
             if ((strcmp(cmd, "save") == 0) && (strcmp(status, "ok") == 0))
             {
-                TFT_ShowSaved();
+                if (Wifi_Busy() == 0U)
+                {
+                    TFT_ShowSaved();
+                }
             }
             else if (strcmp(cmd, "save") == 0)
             {
+                Wifi_CancelPaint();
                 TFT_ShowLastPrice();
             }
         }

@@ -69,9 +69,34 @@ void TFT_ShowResult(const char *product_ascii,
                     float fiber_g,
                     uint8_t info_flags);
 void TFT_ShowReceipt(const TFT_ReceiptItem *items, uint8_t count, float total);
+void TFT_Mark(uint8_t view);
 void TFT_ShowSaved(void);
 void TFT_ShowCleared(void);
 void TFT_ShowLastPrice(void);
 void TFT_PlaySplash(uint8_t tare_applied);
+
+#define TFT_VIEW_WEIGHT    0U
+#define TFT_VIEW_RESULT    1U
+#define TFT_VIEW_SAVED     2U
+#define TFT_VIEW_CLEARED   3U
+#define TFT_VIEW_RECEIPT   4U
+
+typedef struct
+{
+    uint8_t view;
+    uint8_t valid;
+    uint8_t info_flags;
+    uint8_t receipt_count;
+    char    product[20];
+    float   price_per_kg;
+    float   weight_g;
+    float   price;
+    float   kcal;
+    float   carb_g;
+    float   fiber_g;
+    float   receipt_total;
+} TFT_Snap;
+
+void TFT_GetSnap(TFT_Snap *snap);
 
 #endif /* __TFT_H */

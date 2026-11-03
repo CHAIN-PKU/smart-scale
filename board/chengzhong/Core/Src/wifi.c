@@ -1,15 +1,17 @@
 /**
   ******************************************************************************
   * @file    wifi.c
-  * @brief   ESP-01 走 USART3，PD8 发送、PD9 接收。手机连热点 SmartScale 后打开
-  *          http://192.168.4.1/records 或 /receipt 。
-  *          模块答 AT，真正的记录在电脑上。
+ * @brief   ESP-01 走 USART3，PD8 发送、PD9 接收。手机连热点 SmartScale 后打开
+ *          http://192.168.4.1/ ，页面跟屏幕同一套深色计价画面，下面可以
+ *          复位、去皮、保存、清空。/records 和 /receipt 仍向电脑要记录。
   ******************************************************************************
   */
 
 #include "wifi.h"
 #include "config.h"
 #include "protocol.h"
+#include "scale.h"
+#include "tft.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -33,7 +35,6 @@
 #define WIFI_PHASE_RUN     10U
 #define WIFI_PHASE_SEND    11U
 #define WIFI_PHASE_DEAD    12U
-#define WIFI_DNS           320U
 
 static UART_HandleTypeDef huart4;
 static volatile uint8_t  s_ring[WIFI_RING];
@@ -45,7 +46,6 @@ static uint16_t s_line_len;
 static char     s_page[WIFI_PAGE];
 static uint16_t s_page_len;
 static uint8_t  s_phase;
-static uint8_t  s_baud_alt;
 static uint8_t  s_link;
 static uint8_t  s_seen;
 static uint8_t  s_kind;
@@ -66,14 +66,19 @@ static uint8_t  s_keep;
 static uint8_t  s_probe_on;
 static uint8_t  s_probe_id;
 static uint8_t  s_probe_kind;
-static uint8_t  s_dns_ready;
-static uint16_t s_dns_len;
-static uint16_t s_dns_port;
 static uint16_t s_raw_left;
-static uint16_t s_raw_len;
-static char     s_dns_ip[16];
-static uint8_t  s_raw[WIFI_DNS];
-static uint8_t  s_dns[WIFI_DNS];
+static uint8_t  s_raw_tcp;
+static uint8_t  s_raw_bad;
+static uint8_t  s_get_len;
+static uint8_t  s_get_on;
+static uint8_t  s_get_id;
+static char     s_get[80];
+static uint8_t  s_notice;
+static uint8_t  s_reset_arm;
+static uint8_t  s_paint;
+static uint8_t  s_paint_ready;
+static uint8_t  s_sync_receipt;
+static uint8_t  s_http;
 
 static void wifi_send(const char *text);
 static void wifi_arm(uint32_t wait_ms);
@@ -81,8 +86,12 @@ static void wifi_next_setup(void);
 static void wifi_on_esp_line(char *line);
 static void wifi_ask(const char *query);
 static void wifi_begin_send(const char *body);
+static void wifi_begin_screen(void);
+static void wifi_run_kind(uint8_t kind);
 static void wifi_begin_bytes(const uint8_t *data, uint16_t len);
+static void wifi_maybe_reset(void);
 static void wifi_service_side(void);
+static void wifi_queue_close(uint8_t id);
 static uint8_t wifi_take(uint8_t *out);
 
 static void wifi_note(const char *text)
@@ -169,18 +178,9 @@ static void wifi_next_setup(void)
     }
     else if (s_phase == WIFI_PHASE_UDP)
     {
-        if (s_udp_try == 0U)
-        {
-            wifi_send("AT+CIPSTART=4,\"UDP\",\"255.255.255.255\",53,53,2");
-        }
-        else if (s_udp_try == 1U)
-        {
-            wifi_send("AT+CIPSTART=4,\"UDP\",\"192.168.4.255\",53,53,2");
-        }
-        else
-        {
-            wifi_send("AT+CIPSTART=4,\"UDP\",\"192.168.4.2\",53,53,2");
-        }
+        /* Do not answer DNS. An A record of 192.168.4.1 makes the phone open
+         * TLS to this scale for every name and fills links 0-3. */
+        wifi_send("AT");
     }
     else if (s_phase == WIFI_PHASE_SERVER)
     {
@@ -188,7 +188,7 @@ static void wifi_next_setup(void)
     }
     else if (s_phase == WIFI_PHASE_STO)
     {
-        wifi_send("AT+CIPSTO=0");
+        wifi_send("AT+CIPSTO=5");
     }
     else
     {
@@ -224,7 +224,7 @@ static void wifi_enter_run(void)
 
 static void wifi_begin_bytes(const uint8_t *data, uint16_t len)
 {
-    char cmd[72];
+    char cmd[28];
 
     if ((len == 0U) || (len >= WIFI_PAGE))
     {
@@ -235,15 +235,8 @@ static void wifi_begin_bytes(const uint8_t *data, uint16_t len)
         memcpy(s_page, data, len);
     }
     s_page_len = len;
-    if ((s_keep != 0U) && (s_dns_ip[0] != '\0'))
-    {
-        sprintf(cmd, "AT+CIPSEND=%u,%u,\"%s\",%u",
-                (unsigned)s_link, (unsigned)len, s_dns_ip, (unsigned)s_dns_port);
-    }
-    else
-    {
-        sprintf(cmd, "AT+CIPSEND=%u,%u", (unsigned)s_link, (unsigned)len);
-    }
+    s_keep = 0U;
+    sprintf(cmd, "AT+CIPSEND=%u,%u", (unsigned)s_link, (unsigned)len);
     wifi_send(cmd);
     wifi_arm(3000U);
     s_prompted = 0U;
@@ -251,105 +244,21 @@ static void wifi_begin_bytes(const uint8_t *data, uint16_t len)
     s_phase    = WIFI_PHASE_SEND;
 }
 
-static uint16_t wifi_dns_name_end(const uint8_t *q, uint16_t qlen, uint16_t i)
-{
-    uint16_t guard = 0U;
-
-    while ((i < qlen) && (guard < 40U))
-    {
-        uint8_t lab = q[i];
-
-        guard++;
-        if (lab == 0U)
-        {
-            return (uint16_t)(i + 1U);
-        }
-        if ((lab & 0xC0U) == 0xC0U)
-        {
-            return (uint16_t)(i + 2U);
-        }
-        if ((uint16_t)(i + 1U + lab) > qlen)
-        {
-            return 0U;
-        }
-        i = (uint16_t)(i + 1U + lab);
-    }
-    return 0U;
-}
-
-static uint16_t wifi_dns_reply(const uint8_t *q, uint16_t qlen, uint8_t *out)
-{
-    uint16_t name_end;
-    uint16_t qend;
-    uint16_t qtype;
-    uint16_t n;
-    uint8_t  an;
-    static const uint8_t ans[16] = {
-        0xC0U, 0x0CU, 0x00U, 0x01U, 0x00U, 0x01U, 0x00U, 0x00U,
-        0x00U, 0x3CU, 0x00U, 0x04U, 192U, 168U, 4U, 1U
-    };
-
-    if (qlen < 12U)
-    {
-        return 0U;
-    }
-    name_end = wifi_dns_name_end(q, qlen, 12U);
-    if ((name_end == 0U) || ((uint16_t)(name_end + 4U) > qlen))
-    {
-        return 0U;
-    }
-    qend  = (uint16_t)(name_end + 4U);
-    qtype = (uint16_t)(((uint16_t)q[name_end] << 8) | q[name_end + 1U]);
-    an    = (qtype == 1U) ? 1U : 0U;
-    if ((uint16_t)(qend + ((an != 0U) ? 16U : 0U)) > WIFI_DNS)
-    {
-        return 0U;
-    }
-    memcpy(out, q, qend);
-    out[2]  = 0x81U;
-    out[3]  = 0x80U;
-    out[6]  = 0U;
-    out[7]  = an;
-    out[8]  = 0U;
-    out[9]  = 0U;
-    out[10] = 0U;
-    out[11] = 0U;
-    n = qend;
-    if (an != 0U)
-    {
-        memcpy(out + n, ans, 16U);
-        n = (uint16_t)(n + 16U);
-    }
-    return n;
-}
-
-static void wifi_dns_store(void)
-{
-    uint16_t n = wifi_dns_reply(s_raw, s_raw_len, s_dns);
-
-    s_raw_len = 0U;
-    if (n == 0U)
-    {
-        return;
-    }
-    s_dns_len   = n;
-    s_dns_ready = 1U;
-    wifi_note("dnsq");
-}
-
 static uint8_t wifi_dns_header(void)
 {
     char    *p;
-    char    *comma;
     unsigned len = 0U;
-    unsigned port = 0U;
     uint16_t i;
-    uint16_t ncopy;
+    uint8_t  id;
 
-    if ((s_udp == 0U) || (s_line_len < 7U) || (memcmp(s_line, "+IPD,4,", 7) != 0))
+    /* +IPD,<link>,<len>[,ip,port]:<payload>. Count the payload so binary
+     * TLS does not sit in the text line and hold a web link open. */
+    if ((s_line_len < 7U) || (memcmp(s_line, "+IPD,", 5) != 0) ||
+        (s_line[5] < '0') || (s_line[5] > '4'))
     {
         return 0U;
     }
+    id = (uint8_t)(s_line[5] - '0');
     for (i = 0U; i < s_line_len; i++)
     {
         if (s_line[i] == ':')
@@ -368,38 +277,32 @@ static uint8_t wifi_dns_header(void)
         len = (len * 10U) + (unsigned)(*p - '0');
         p++;
     }
-    s_dns_ip[0] = '\0';
-    s_dns_port  = 0U;
-    if (*p == ',')
+    s_line_len = 0U;
+    s_seen     = id;
+    s_raw_tcp  = (id < 4U) ? 1U : 0U;
+    if (s_raw_tcp != 0U)
     {
-        p++;
-        comma = strchr(p, ',');
-        if (comma != NULL)
+        s_raw_bad = 0U;
+        if ((s_get_on == 0U) || (s_get_id != id))
         {
-            ncopy = (uint16_t)(comma - p);
-            if (ncopy >= sizeof(s_dns_ip))
+            if ((s_get_on != 0U) && (s_get_id < 4U))
             {
-                ncopy = (uint16_t)(sizeof(s_dns_ip) - 1U);
+                wifi_queue_close(s_get_id);
             }
-            memcpy(s_dns_ip, p, ncopy);
-            s_dns_ip[ncopy] = '\0';
-            p = comma + 1;
-            while ((*p >= '0') && (*p <= '9'))
-            {
-                port = (port * 10U) + (unsigned)(*p - '0');
-                p++;
-            }
-            s_dns_port = (uint16_t)port;
+            s_get_len = 0U;
+            s_get_on  = 0U;
         }
     }
-    s_line_len = 0U;
-    if ((len == 0U) || (len > 1024U))
+    if ((len == 0U) || (len > 65535U))
     {
         s_raw_left = 0U;
+        if (s_raw_tcp != 0U)
+        {
+            wifi_queue_close(id);
+        }
         return 1U;
     }
     s_raw_left = (uint16_t)len;
-    s_raw_len  = 0U;
     return 1U;
 }
 
@@ -452,7 +355,7 @@ static uint16_t wifi_row(uint16_t n, const char *start, const char *end)
     }
     if ((bar1 == NULL) || (bar2 == NULL))
     {
-        n = wifi_put(n, "<p class=empty>");
+        n = wifi_put(n, "<p class=c>");
         n = wifi_span(n, start, end);
         return wifi_put(n, "</p>");
     }
@@ -463,6 +366,216 @@ static uint16_t wifi_row(uint16_t n, const char *start, const char *end)
     n = wifi_put(n, "\xe5\x85\x8b</span><em>");
     n = wifi_span(n, bar2 + 1, end);
     return wifi_put(n, "\xe5\x85\x83</em></li>");
+}
+
+static const char WIFI_CSS[] =
+    "body{margin:0;padding:8px;background:#081821;color:#fff7e6}"
+    ".h,.t,a{background:#082c3a}.h{display:flex;padding:10px}"
+    ".n{font-size:40px}.m{color:#42b673;font-size:28px}.u,span{color:#adcace}"
+    ".c,li{background:#19353a}.p{background:#213129}.c,.p,li{padding:10px;margin:8px 0}"
+    ".v{font-size:34px}.p .v{color:#ff8a29;font-size:42px}.p .y{color:#ffda4a}"
+    ".t,li,.g{display:flex}"
+    "a{display:inline-block;width:42%;margin:6px;padding:14px 0;color:#fff7e6}"
+    "ul{padding:0;list-style:none}b{flex:1}em,.t b{color:#ff8a29}";
+
+static void wifi_fmt(char *out, float v, uint8_t decimals)
+{
+    int32_t scale = (decimals == 2U) ? 100 : 10;
+    int32_t s = (int32_t)(v * (float)scale + ((v >= 0.0f) ? 0.5f : -0.5f));
+    int32_t a = (s < 0) ? -s : s;
+
+    if (decimals == 2U)
+    {
+        sprintf(out, "%s%ld.%02ld", (s < 0) ? "-" : "", (long)(a / scale), (long)(a % scale));
+    }
+    else
+    {
+        sprintf(out, "%s%ld.%01ld", (s < 0) ? "-" : "", (long)(a / scale), (long)(a % scale));
+    }
+}
+
+static uint16_t wifi_name(uint16_t n, const char *product)
+{
+    if ((product == NULL) || (product[0] == '\0'))
+    {
+        return wifi_put(n, "READY");
+    }
+    if (strcmp(product, "banana") == 0)
+    {
+        return wifi_put(n, "\xe9\xa6\x99\xe8\x95\x89");
+    }
+    if (strcmp(product, "apple") == 0)
+    {
+        return wifi_put(n, "\xe8\x8b\xb9\xe6\x9e\x9c");
+    }
+    if (strcmp(product, "orange") == 0)
+    {
+        return wifi_put(n, "\xe6\xa9\x99\xe5\xad\x90");
+    }
+    if (strcmp(product, "grape") == 0)
+    {
+        return wifi_put(n, "\xe8\x91\xa1\xe8\x90\x84");
+    }
+    return wifi_put(n, product);
+}
+
+static uint16_t wifi_page_open(void)
+{
+    uint16_t n = 0U;
+
+    n = wifi_put(n,
+                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
+                 "<html><head><meta charset=utf-8>"
+                 "<meta name=viewport content=\"width=device-width,initial-scale=1\"><style>");
+    n = wifi_put(n, WIFI_CSS);
+    return wifi_put(n,
+                    "</style></head><body>"
+                    "<div class=h><span>SMART SCALE</span><span>READY</span></div>");
+}
+
+static uint16_t wifi_keys(uint16_t n, uint8_t which)
+{
+    (void)which;
+    return wifi_put(n,
+                    "<p><a href=/do/reset>\xe5\xa4\x8d\xe4\xbd\x8d</a>"
+                    "<a href=/do/tare>\xe5\x8e\xbb\xe7\x9a\xae</a>"
+                    "<a href=/do/save>\xe4\xbf\x9d\xe5\xad\x98</a>"
+                    "<a href=/do/clear>\xe6\xb8\x85\xe7\xa9\xba</a>"
+                    "<a href=/records>\xe8\xae\xb0\xe5\xbd\x95</a>"
+                    "<a href=/receipt>\xe6\xb8\x85\xe5\x8d\x95</a></p></body></html>");
+}
+
+static void wifi_ship(uint16_t n, uint8_t which)
+{
+    n = wifi_keys(n, which);
+    if ((n + 1U) >= WIFI_PAGE)
+    {
+        return;
+    }
+    s_page[n] = '\0';
+    s_page_len = n;
+    s_keep = 0U;
+    wifi_begin_bytes((const uint8_t *)s_page, n);
+}
+
+static uint16_t wifi_weight_card(uint16_t n, float grams)
+{
+    char num[16];
+
+    wifi_fmt(num, grams, 1U);
+    n = wifi_put(n, "<div class=c><div class=u>");
+    n = wifi_put(n, "\xe9\x87\x8d\xe9\x87\x8f");
+    n = wifi_put(n, "</div><div class=v>");
+    n = wifi_put(n, num);
+    return wifi_put(n, "\xe5\x85\x8b</div></div>");
+}
+
+static uint16_t wifi_price_card(uint16_t n, float price, uint8_t banana)
+{
+    char num[16];
+
+    wifi_fmt(num, price, 2U);
+    n = wifi_put(n, "<div class=p><div class=u>");
+    n = wifi_put(n, "\xe9\x87\x91\xe9\xa2\x9d");
+    n = wifi_put(n, (banana != 0U) ? "</div><div class=\"v y\">" : "</div><div class=v>");
+    n = wifi_put(n, num);
+    return wifi_put(n, "\xe5\x85\x83</div></div>");
+}
+
+static uint16_t wifi_nut(uint16_t n, const TFT_Snap *snap)
+{
+    char num[16];
+
+    if ((snap->info_flags & (TFT_INFO_KCAL | TFT_INFO_CARB | TFT_INFO_FIBER)) == 0U)
+    {
+        return n;
+    }
+    n = wifi_put(n, "<p class=g>");
+    if ((snap->info_flags & TFT_INFO_KCAL) != 0U)
+    {
+        sprintf(num, "%ld", (long)(snap->kcal + 0.5f));
+        n = wifi_put(n, "<span>");
+        n = wifi_put(n, num);
+        n = wifi_put(n, "\xe5\x8d\x83\xe5\x8d\xa1</span>");
+    }
+    if ((snap->info_flags & TFT_INFO_CARB) != 0U)
+    {
+        wifi_fmt(num, snap->carb_g, 1U);
+        n = wifi_put(n, "<span>");
+        n = wifi_put(n, "\xe7\xa2\xb3\xe6\xb0\xb4");
+        n = wifi_put(n, num);
+        n = wifi_put(n, "\xe5\x85\x8b</span>");
+    }
+    if ((snap->info_flags & TFT_INFO_FIBER) != 0U)
+    {
+        wifi_fmt(num, snap->fiber_g, 1U);
+        n = wifi_put(n, "<span>");
+        n = wifi_put(n, "\xe7\xba\xa4\xe7\xbb\xb4");
+        n = wifi_put(n, num);
+        n = wifi_put(n, "\xe5\x85\x8b</span>");
+    }
+    return wifi_put(n, "</p>");
+}
+
+static void wifi_begin_screen(void)
+{
+    TFT_Snap snap;
+    uint16_t n;
+    char num[16];
+
+    TFT_GetSnap(&snap);
+    n = wifi_page_open();
+    if (s_notice == 1U)
+    {
+        n = wifi_put(n, "<p class=m>\xe5\xb7\xb2\xe5\x8e\xbb\xe7\x9a\xae</p>");
+    }
+    else if (s_notice == 4U)
+    {
+        n = wifi_put(n, "<p class=m>\xe5\xb7\xb2\xe5\xa4\x8d\xe4\xbd\x8d</p>");
+    }
+    s_notice = 0U;
+
+    if (snap.view == TFT_VIEW_SAVED)
+    {
+        n = wifi_put(n, "<p class=m>\xe5\xb7\xb2\xe4\xbf\x9d\xe5\xad\x98</p><p class=n>");
+        n = wifi_name(n, snap.product);
+        n = wifi_put(n, "</p>");
+        if (snap.valid != 0U)
+        {
+            n = wifi_weight_card(n, snap.weight_g);
+            n = wifi_price_card(n, snap.price, (uint8_t)(strcmp(snap.product, "banana") == 0));
+        }
+    }
+    else if (snap.view == TFT_VIEW_CLEARED)
+    {
+        n = wifi_put(n, "<p class=m>\xe6\xb8\x85\xe5\x8d\x95\xe5\xb7\xb2\xe6\xb8\x85\xe7\xa9\xba</p>"
+                        "<div class=t><span>\xe5\x90\x88\xe8\xae\xa1</span><b>0.00\xe5\x85\x83</b></div>");
+    }
+    else if (snap.view == TFT_VIEW_RECEIPT)
+    {
+        n = wifi_put(n, "<p class=n>\xe6\xb8\x85\xe5\x8d\x95</p><div class=t><span>\xe5\x90\x88\xe8\xae\xa1</span><b>");
+        wifi_fmt(num, snap.receipt_total, 2U);
+        n = wifi_put(n, num);
+        n = wifi_put(n, "\xe5\x85\x83</b></div>");
+    }
+    else if ((snap.view == TFT_VIEW_RESULT) && (snap.valid != 0U))
+    {
+        n = wifi_put(n, "<p class=n>");
+        n = wifi_name(n, snap.product);
+        n = wifi_put(n, "</p><p class=u>");
+        wifi_fmt(num, snap.price_per_kg, 1U);
+        n = wifi_put(n, num);
+        n = wifi_put(n, "\xe5\x85\x83/kg</p>");
+        n = wifi_weight_card(n, snap.weight_g);
+        n = wifi_price_card(n, snap.price, (uint8_t)(strcmp(snap.product, "banana") == 0));
+        n = wifi_nut(n, &snap);
+    }
+    else
+    {
+        n = wifi_put(n, "<p class=n>READY</p>");
+        n = wifi_weight_card(n, Scale_GetWeightG());
+    }
+    wifi_ship(n, 2U);
 }
 
 static void wifi_begin_send(const char *body)
@@ -481,50 +594,8 @@ static void wifi_begin_send(const char *body)
     hash = strchr(body, '#');
     list = body;
     list_end = (hash != NULL) ? hash : (body + strlen(body));
-
-    n = wifi_put(n,
-                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
-                 "<!DOCTYPE html><html><head><meta charset=utf-8>"
-                 "<meta name=viewport content=\"width=device-width,initial-scale=1\">"
-                 "<title>");
-    n = wifi_put(n, "\xe6\x99\xba\xe8\x83\xbd\xe7\x94\xb5\xe5\xad\x90\xe7\xa7\xa4");
-    n = wifi_put(n,
-                 "</title><style>"
-                 "body{margin:0;background:#f3efe6;color:#1c1915;font-family:sans-serif;font-size:17px}"
-                 "a{color:#1e3d34;text-decoration:none}"
-                 "header{padding:24px 18px 16px;background:#1e3d34;color:#f7f3ea}"
-                 ".mark{margin:0;font-size:12px;letter-spacing:.16em;opacity:.7}"
-                 "h1{margin:4px 0 0;font-size:28px}"
-                 "nav{display:flex;gap:8px;margin-top:16px}"
-                 "nav a{flex:1;text-align:center;background:#f3efe6;border-radius:999px;padding:12px 0;font-size:16px}"
-                 "nav a.on{background:#e4c27a;font-weight:700}"
-                 "main{padding:16px 16px 36px}"
-                 "ul{list-style:none;margin:0;padding:0}"
-                 "li{background:#fff;border-radius:16px;padding:16px;margin:0 0 12px;display:flex;gap:8px}"
-                 "b{flex:1;font-size:20px}"
-                 "span{color:#6f675e;font-size:15px}"
-                 "em{font-style:normal;font-size:20px;font-weight:700}"
-                 ".empty{background:#fff;border-radius:16px;padding:28px 16px;color:#6f675e;font-size:18px}"
-                 ".total{margin-top:4px;background:#1e3d34;color:#f7f3ea;border-radius:16px;padding:16px;display:flex}"
-                 ".total b{flex:none;margin-left:auto;font-size:28px;color:#f7f3ea}"
-                 "a.go{display:block;margin-top:18px;text-align:center;font-size:16px}"
-                 "</style></head><body><header><p class=mark>SMART SCALE</p><h1>");
-    n = wifi_put(n, "\xe6\x99\xba\xe8\x83\xbd\xe7\x94\xb5\xe5\xad\x90\xe7\xa7\xa4");
-    n = wifi_put(n, "</h1><nav><a href=/records");
-    if (s_kind == 0U)
-    {
-        n = wifi_put(n, " class=on");
-    }
-    n = wifi_put(n, ">");
-    n = wifi_put(n, "\xe7\xa7\xb0\xe9\x87\x8d\xe8\xae\xb0\xe5\xbd\x95");
-    n = wifi_put(n, "</a><a href=/receipt");
-    if (s_kind == 1U)
-    {
-        n = wifi_put(n, " class=on");
-    }
-    n = wifi_put(n, ">");
-    n = wifi_put(n, "\xe8\xb4\xad\xe7\x89\xa9\xe6\xb8\x85\xe5\x8d\x95");
-    n = wifi_put(n, "</a></nav></header><main><ul>");
+    n = wifi_page_open();
+    n = wifi_put(n, "<ul>");
 
     cursor = list;
     while (cursor < list_end)
@@ -544,7 +615,7 @@ static void wifi_begin_send(const char *body)
     }
     if (rows == 0U)
     {
-        n = wifi_put(n, "<p class=empty>");
+        n = wifi_put(n, "<p class=c>");
         if ((list_end > list) && (strchr(list, '|') == NULL))
         {
             n = wifi_span(n, list, list_end);
@@ -562,23 +633,118 @@ static void wifi_begin_send(const char *body)
     n = wifi_put(n, "</ul>");
     if (hash != NULL)
     {
-        n = wifi_put(n, "<div class=total><span>");
+        n = wifi_put(n, "<div class=t><span>");
         n = wifi_put(n, "\xe5\x90\x88\xe8\xae\xa1");
         n = wifi_put(n, "</span><b>");
         n = wifi_put(n, hash + 1);
         n = wifi_put(n, "\xe5\x85\x83</b></div>");
     }
-    n = wifi_put(n, "<a class=go href=>");
-    n = wifi_put(n, "\xe5\x88\xb7\xe6\x96\xb0\xe8\xbf\x99\xe4\xb8\x80\xe9\xa1\xb5");
-    n = wifi_put(n, "</a></main></body></html>");
-    if ((n + 1U) >= WIFI_PAGE)
+    wifi_ship(n, s_kind);
+}
+
+static void wifi_maybe_reset(void)
+{
+    if (s_reset_arm != 0U)
+    {
+        HAL_Delay(400U);
+        NVIC_SystemReset();
+    }
+}
+
+static void wifi_page_done(void)
+{
+    s_paint_ready = 1U;
+}
+
+uint8_t Wifi_Busy(void)
+{
+    return (s_paint != 0U) ? 1U : 0U;
+}
+
+void Wifi_CancelPaint(void)
+{
+    s_paint = 0U;
+}
+
+static void wifi_deferred(void)
+{
+    uint8_t paint;
+
+    if ((s_paint_ready == 0U) || (s_phase != WIFI_PHASE_RUN))
     {
         return;
     }
-    s_page[n] = '\0';
-    s_page_len = n;
-    s_keep     = 0U;
-    wifi_begin_bytes((const uint8_t *)s_page, n);
+    s_paint_ready = 0U;
+    if (s_sync_receipt != 0U)
+    {
+        s_sync_receipt = 0U;
+        Proto_SendCommand("receipt");
+    }
+    paint = s_paint;
+    s_paint = 0U;
+    if (paint == 3U)
+    {
+        TFT_ShowWeight(0.0f);
+    }
+    else if (paint == 4U)
+    {
+        TFT_ShowSaved();
+    }
+    else if (paint == 5U)
+    {
+        TFT_ShowCleared();
+    }
+}
+
+static void wifi_run_kind(uint8_t kind)
+{
+    if (kind == 3U)
+    {
+        if (Proto_PressTare() != 0U)
+        {
+            s_notice = 1U;
+            s_paint = 3U;
+        }
+        wifi_begin_screen();
+        return;
+    }
+    if (kind == 4U)
+    {
+        Proto_PressSave();
+        s_paint = 4U;
+        wifi_begin_screen();
+        return;
+    }
+    if (kind == 5U)
+    {
+        Proto_PressClear();
+        s_paint = 5U;
+        wifi_begin_screen();
+        return;
+    }
+    if (kind == 6U)
+    {
+        Proto_PressReset();
+        s_notice = 4U;
+        s_reset_arm = 1U;
+        wifi_begin_screen();
+        return;
+    }
+    if (kind >= 2U)
+    {
+        wifi_begin_screen();
+        return;
+    }
+    if (kind == 1U)
+    {
+        wifi_ask("receipt");
+        if (s_pending != 0U)
+        {
+            s_sync_receipt = 1U;
+        }
+        return;
+    }
+    wifi_ask("records");
 }
 
 static void wifi_ask(const char *query)
@@ -605,6 +771,87 @@ static void wifi_queue_close(uint8_t id)
     {
         s_drop |= (uint8_t)(1U << id);
     }
+}
+
+static void wifi_tcp_byte(uint8_t byte)
+{
+    uint8_t id = s_seen;
+
+    if ((s_raw_bad != 0U) || (id >= 4U))
+    {
+        return;
+    }
+    if (byte == (uint8_t)'\r')
+    {
+        return;
+    }
+    if (byte != (uint8_t)'\n')
+    {
+        if ((s_get_len + 1U) < sizeof(s_get))
+        {
+            s_get[s_get_len] = (char)byte;
+            s_get_len++;
+        }
+        if (s_get_len == 4U)
+        {
+            if (memcmp(s_get, "GET ", 4) != 0)
+            {
+                s_raw_bad = 1U;
+                s_get_on  = 0U;
+                s_get_len = 0U;
+                wifi_queue_close(id);
+            }
+            else
+            {
+                s_http = (uint8_t)(s_http | (uint8_t)(1U << id));
+            }
+        }
+        return;
+    }
+    s_get[s_get_len] = '\0';
+    if ((s_get_len >= 4U) && (memcmp(s_get, "GET ", 4) == 0))
+    {
+        s_seen    = id;
+        s_get_on  = 0U;
+        s_raw_bad = 1U;
+        wifi_on_esp_line(s_get);
+        s_get_len = 0U;
+        return;
+    }
+    s_raw_bad = 1U;
+    s_get_on  = 0U;
+    s_get_len = 0U;
+    wifi_queue_close(id);
+}
+
+static void wifi_tcp_end(void)
+{
+    uint8_t id = s_seen;
+
+    if ((s_raw_bad != 0U) || (id >= 4U))
+    {
+        s_raw_bad = 0U;
+        return;
+    }
+    if ((s_get_len > 0U) && (s_get_len < 4U) && (memcmp("GET ", s_get, s_get_len) == 0))
+    {
+        s_get_on = 1U;
+        s_get_id = id;
+        return;
+    }
+    if ((s_get_len >= 4U) && (memcmp(s_get, "GET ", 4) == 0))
+    {
+        s_get_on = 1U;
+        s_get_id = id;
+        return;
+    }
+    if (s_get_len > 0U)
+    {
+        s_get_len = 0U;
+        s_get_on  = 0U;
+        wifi_queue_close(id);
+    }
+    s_raw_bad = 0U;
 }
 
 static uint8_t wifi_reply_done(const char *line)
@@ -685,14 +932,7 @@ static void wifi_take_page(uint8_t id, uint8_t kind)
     s_hold = 1U;
     s_drop &= (uint8_t)~(1U << id);
     wifi_note("get");
-    if (kind != 0U)
-    {
-        wifi_ask("receipt");
-    }
-    else
-    {
-        wifi_ask("records");
-    }
+    wifi_run_kind(kind);
 }
 
 static uint8_t wifi_take_probe(uint8_t id, const char *body)
@@ -763,19 +1003,61 @@ static void wifi_on_esp_line(char *line)
     }
     if ((strstr(body, "GET /") == NULL) || (strstr(body, "HTTP/") == NULL))
     {
+        /* 只有 +IPD 头、还没看到正文时不能关。手机把任意域名指到本机后，
+         * 加密连接没有 GET，不关就会占满 4 条网页连接。 */
+        if ((mark == NULL) || (body == line) || (id >= 4U))
+        {
+            return;
+        }
+        if (((s_hold != 0U) && (id == s_link)) ||
+            ((s_next_ok != 0U) && (id == s_next_id)) ||
+            ((s_http & (uint8_t)(1U << id)) != 0U))
+        {
+            return;
+        }
+        if (body[0] != '\0')
+        {
+            wifi_queue_close(id);
+        }
         return;
+    }
+    if (id < 4U)
+    {
+        s_http |= (uint8_t)(1U << id);
     }
     if (wifi_take_probe(id, body) != 0U)
     {
         return;
     }
-    if (strstr(body, "GET /receipt") != NULL)
+    if (strstr(body, "GET /do/reset") != NULL)
+    {
+        kind = 6U;
+    }
+    else if (strstr(body, "GET /do/tare") != NULL)
+    {
+        kind = 3U;
+    }
+    else if (strstr(body, "GET /do/save") != NULL)
+    {
+        kind = 4U;
+    }
+    else if (strstr(body, "GET /do/clear") != NULL)
+    {
+        kind = 5U;
+    }
+    else if (strstr(body, "GET /receipt") != NULL)
     {
         kind = 1U;
     }
-    else if ((strstr(body, "GET /records") == NULL) &&
-             (strstr(body, "GET / HTTP") == NULL) &&
-             (strstr(body, "GET /?") == NULL))
+    else if (strstr(body, "GET /records") != NULL)
+    {
+        kind = 0U;
+    }
+    else if ((strstr(body, "GET / HTTP") != NULL) || (strstr(body, "GET /?") != NULL))
+    {
+        kind = 2U;
+    }
+    else
     {
         if (!((s_hold != 0U) && (id == s_link)))
         {
@@ -822,15 +1104,6 @@ static void wifi_service_side(void)
         s_hold     = 1U;
         wifi_note("probe");
         wifi_begin_bytes((const uint8_t *)body, (uint16_t)strlen(body));
-        return;
-    }
-    if (s_dns_ready != 0U)
-    {
-        s_link      = 4U;
-        s_keep      = 1U;
-        s_dns_ready = 0U;
-        wifi_note("dns");
-        wifi_begin_bytes(s_dns, s_dns_len);
     }
 }
 
@@ -843,6 +1116,12 @@ static void wifi_on_sock_line(const char *line)
         if (!((s_udp != 0U) && (id == 4U)))
         {
             s_drop &= (uint8_t)~(1U << id);
+            s_http &= (uint8_t)~(1U << id);
+            if ((s_get_on != 0U) && (s_get_id == id))
+            {
+                s_get_on  = 0U;
+                s_get_len = 0U;
+            }
             wifi_note("closed");
         }
     }
@@ -863,9 +1142,34 @@ static uint8_t wifi_take(uint8_t *out)
     return 1U;
 }
 
+static void wifi_revive(void)
+{
+    s_phase    = WIFI_PHASE_AT;
+    s_hold     = 0U;
+    s_at_wait  = 0U;
+    s_pending  = 0U;
+    s_drop     = 0U;
+    s_next_ok  = 0U;
+    s_probe_on = 0U;
+    s_raw_left = 0U;
+    s_keep     = 0U;
+    wifi_open(115200U);
+    if (s_phase != WIFI_PHASE_DEAD)
+    {
+        wifi_next_setup();
+    }
+}
+
 static void wifi_push_line(void)
 {
     s_line[s_line_len] = '\0';
+    if ((s_line_len > 0U) && (strstr(s_line, "ready") != NULL))
+    {
+        /* The module rebooted at 115200. Start the access point again. */
+        wifi_revive();
+        s_line_len = 0U;
+        return;
+    }
     if (s_line_len > 0U)
     {
         if (s_phase < WIFI_PHASE_RUN)
@@ -928,22 +1232,20 @@ static void wifi_push_line(void)
                 }
                 s_keep  = 0U;
                 s_phase = WIFI_PHASE_RUN;
+                wifi_page_done();
+                wifi_maybe_reset();
             }
             else if ((strstr(s_line, "ERROR") != NULL) || (strstr(s_line, "FAIL") != NULL))
             {
                 s_hold = 0U;
-                if ((s_keep != 0U) && (s_dns_ip[0] != '\0'))
-                {
-                    /* Extended UDP CIPSEND was rejected. Retry toward the last peer. */
-                    s_dns_ip[0] = '\0';
-                    s_dns_ready = 1U;
-                }
-                else if (s_keep == 0U)
+                if (s_keep == 0U)
                 {
                     wifi_queue_close(s_link);
                 }
                 s_keep  = 0U;
                 s_phase = WIFI_PHASE_RUN;
+                wifi_page_done();
+                wifi_maybe_reset();
             }
             else
             {
@@ -960,7 +1262,6 @@ void Wifi_Init(void)
     s_tail      = 0U;
     s_line_len  = 0U;
     s_phase     = 0U;
-    s_baud_alt  = 0U;
     s_link      = 0U;
     s_seen      = 0U;
     s_kind      = 0U;
@@ -976,9 +1277,18 @@ void Wifi_Init(void)
     s_udp_try   = 0U;
     s_keep      = 0U;
     s_probe_on  = 0U;
-    s_dns_ready = 0U;
     s_raw_left  = 0U;
-    s_dns_ip[0] = '\0';
+    s_raw_tcp   = 0U;
+    s_raw_bad   = 0U;
+    s_get_len   = 0U;
+    s_get_on    = 0U;
+    s_get_id    = 0U;
+    s_notice       = 0U;
+    s_reset_arm    = 0U;
+    s_paint        = 0U;
+    s_paint_ready  = 0U;
+    s_sync_receipt = 0U;
+    s_http         = 0U;
     wifi_open(115200U);
     if (s_phase != WIFI_PHASE_DEAD)
     {
@@ -1004,15 +1314,14 @@ void Wifi_Poll(void)
     {
         if (s_raw_left > 0U)
         {
-            if (s_raw_len + 1U < WIFI_DNS)
+            if (s_raw_tcp != 0U)
             {
-                s_raw[s_raw_len] = byte;
-                s_raw_len++;
+                wifi_tcp_byte(byte);
             }
             s_raw_left--;
-            if (s_raw_left == 0U)
+            if ((s_raw_left == 0U) && (s_raw_tcp != 0U))
             {
-                wifi_dns_store();
+                wifi_tcp_end();
             }
             continue;
         }
@@ -1036,6 +1345,11 @@ void Wifi_Poll(void)
             }
             else
             {
+                if ((s_line_len > 5U) && (s_line[0] == '+') &&
+                    (s_line[5] >= '0') && (s_line[5] <= '3'))
+                {
+                    wifi_queue_close((uint8_t)(s_line[5] - '0'));
+                }
                 s_line_len = 0U;
             }
         }
@@ -1047,19 +1361,15 @@ void Wifi_Poll(void)
 
     if ((s_phase < WIFI_PHASE_RUN) && ((int32_t)(HAL_GetTick() - s_deadline) >= 0))
     {
-        if ((s_phase == WIFI_PHASE_AT) && (s_baud_alt == 0U))
+        if (s_phase == WIFI_PHASE_AT)
         {
-            s_baud_alt = 1U;
-            wifi_open(9600U);
+            /* ESP-01 on this board is 115200. A late "ready" used to fall
+             * through to 9600 and then stay silent. */
+            wifi_open(115200U);
             if (s_phase != WIFI_PHASE_DEAD)
             {
                 wifi_next_setup();
             }
-        }
-        else if (s_phase == WIFI_PHASE_AT)
-        {
-            wifi_note("silent");
-            s_phase = WIFI_PHASE_DEAD;
         }
         else
         {
@@ -1083,16 +1393,18 @@ void Wifi_Poll(void)
             wifi_queue_close(s_link);
         }
         s_phase = WIFI_PHASE_RUN;
+        wifi_page_done();
+        wifi_maybe_reset();
     }
     if ((s_at_wait != 0U) && ((int32_t)(HAL_GetTick() - s_at_due) >= 0))
     {
         s_at_wait = 0U;
     }
-    /* Close the finished link and wait for OK before starting another page. */
+    /* 先关掉这一条网页连接，再画屏幕。浏览器要等连接关闭才算页面完成。 */
     wifi_close_one();
-    wifi_service_side();
+    wifi_deferred();
     if ((s_phase == WIFI_PHASE_RUN) && (s_pending == 0U) && (s_hold == 0U) &&
-        (s_at_wait == 0U) && (s_next_ok != 0U) && (s_probe_on == 0U) && (s_dns_ready == 0U))
+        (s_at_wait == 0U) && (s_next_ok != 0U) && (s_probe_on == 0U))
     {
         uint8_t id = s_next_id;
         uint8_t kind = s_next_kind;
@@ -1103,21 +1415,15 @@ void Wifi_Poll(void)
         s_hold    = 1U;
         s_drop &= (uint8_t)~(1U << id);
         wifi_note("get");
-        if (kind != 0U)
-        {
-            wifi_ask("receipt");
-        }
-        else
-        {
-            wifi_ask("records");
-        }
+        wifi_run_kind(kind);
     }
+    wifi_service_side();
 }
 
 void Wifi_OnPcLine(const char *line)
 {
     const char *text;
-    char        body[480];
+    static char body[480];
     uint16_t    i;
 
     if ((s_pending == 0U) || (s_phase != WIFI_PHASE_RUN) || (s_at_wait != 0U))
@@ -1162,6 +1468,15 @@ void Wifi_Uart4Isr(void)
 }
 
 #else
+
+uint8_t Wifi_Busy(void)
+{
+    return 0U;
+}
+
+void Wifi_CancelPaint(void)
+{
+}
 
 void Wifi_Init(void)
 {

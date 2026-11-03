@@ -357,3 +357,31 @@ void Voice_SayPrice(const char *product_ascii, float weight_g, float price)
 
     Voice_Say(buf, n);
 }
+
+void Voice_SayTared(void)
+{
+    static const uint8_t gbk[] = { 0xD2, 0xD1, 0xC8, 0xA5, 0xC6, 0xA4 }; /* 已去皮 */
+
+    Voice_Say(gbk, (uint16_t)sizeof(gbk));
+}
+
+void Voice_SaySaved(void)
+{
+    static const uint8_t gbk[] = { 0xD2, 0xD1, 0xB1, 0xA3, 0xB4, 0xE6 }; /* 已保存 */
+
+    Voice_Say(gbk, (uint16_t)sizeof(gbk));
+}
+
+void Voice_SayCleared(void)
+{
+    static const uint8_t gbk[] = { 0xD2, 0xD1, 0xC7, 0xE5, 0xBF, 0xD5 }; /* 已清空 */
+
+    Voice_Say(gbk, (uint16_t)sizeof(gbk));
+}
+
+void Voice_SayReset(void)
+{
+    static const uint8_t gbk[] = { 0xD2, 0xD1, 0xB8, 0xB4, 0xCE, 0xBB }; /* 已复位 */
+
+    Voice_Say(gbk, (uint16_t)sizeof(gbk));
+}

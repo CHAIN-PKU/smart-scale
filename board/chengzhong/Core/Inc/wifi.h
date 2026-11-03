@@ -12,6 +12,8 @@
 
 void Wifi_Init(void);
 void Wifi_Poll(void);
+uint8_t Wifi_Busy(void);
+void Wifi_CancelPaint(void);
 void Wifi_OnPcLine(const char *line);
 void Wifi_Uart4Isr(void);
 

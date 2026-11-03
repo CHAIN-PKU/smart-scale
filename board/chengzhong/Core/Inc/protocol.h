@@ -20,6 +20,11 @@ void Proto_SendStatus(const char *state);                /* {"type":"status",...
 void Proto_SendWeight(float weight_g, uint8_t stable, float tare_g, const char *status);
 void Proto_SendTareAck(uint8_t ok);
 void Proto_SendCommand(const char *command);
+uint8_t Proto_PressTare(void);                           /* 成功才去皮、播报并回到重量屏 */
+void Proto_PressSave(void);                             /* 保存，并立刻画出已保存 */
+void Proto_PressClear(void);                            /* 清空，并立刻画出已清空 */
+void Proto_PressReceipt(void);                          /* 向电脑要清单，回来后再画 */
+void Proto_PressReset(void);                            /* 只播报已复位 */
 void Proto_SendRawDebug(int32_t raw, float grams);       /* 标定用的非 JSON 调试行 */
 void Proto_SendDebugLine(const char *text);              /* 任意一行 "# ..." 调试输出 */
 void Proto_SendLine(const char *s);                       /* 原样发一行给电脑，用于 WiFi 查询 */

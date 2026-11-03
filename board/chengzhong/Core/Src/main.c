@@ -28,6 +28,17 @@ static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 
+static void service_delay(uint32_t ms)
+{
+    uint32_t start = HAL_GetTick();
+
+    while ((HAL_GetTick() - start) < ms)
+    {
+        Proto_Poll();
+        Wifi_Poll();
+    }
+}
+
 int main(void)
 {
     /* 1. HAL 初始化：开中断、启动 1ms 滴答 */
@@ -59,36 +70,20 @@ int main(void)
     TFT_Init();
     TFT_PlaySplash(0U);
 
-    /* 等语音模块启动完，设成正式参数；开屏页继续等待 K1。 */
-    HAL_Delay(2000U);
+    /* Voice module needs a moment. Keep reading Wi-Fi or its boot text fills the UART. */
+    service_delay(2000U);
     Voice_DisablePrompt();
-    HAL_Delay(300U);
+    service_delay(300U);
     Voice_SetVolume(VOICE_VOLUME);
-    HAL_Delay(300U);
+    service_delay(300U);
     Voice_SetSpeed(VOICE_SPEED);
-    HAL_Delay(300U);
+    service_delay(300U);
 
 #if (VOICE_TEST_SENTENCE > 0)
     Voice_SayTest();
 #endif
 
-    /* 按 K1 后才离开开屏页；这次按键同时完成一次正式去皮。 */
-    while (Key_TarePressed() == 0U)
-    {
-        Proto_Poll();
-        Wifi_Poll();
-        HAL_Delay(10U);
-    }
-    {
-        uint8_t tare_ok = Scale_Tare();
-
-        if (tare_ok != 0U)
-        {
-            Scale_SendCurrentStatus();
-        }
-        TFT_PlaySplash(tare_ok);
-        TFT_ShowWeight(0.0f);
-    }
+    TFT_ShowWeight(0.0f);
 
     while (1)
     {
@@ -97,23 +92,25 @@ int main(void)
 
         if (Key_SavePressed() != 0U)
         {
-            Proto_SendCommand("save");
+            Proto_PressSave();
+            TFT_ShowSaved();
         }
         if (Key_ReceiptPressed() != 0U)
         {
-            Proto_SendCommand("receipt");
+            Proto_PressReceipt();
         }
         if (Key_ClearPressed() != 0U)
         {
-            Proto_SendCommand("clear");
+            Proto_PressClear();
+            TFT_ShowCleared();
         }
 
-        /* 板子上的去皮键被按下：和收到电脑命令做同一件事 */
+        /* 板子上的去皮键：成功才播报“已去皮”，屏幕回到重量 */
         if (Key_TarePressed() != 0U)
         {
-            if (Scale_Tare() != 0U)
+            if (Proto_PressTare() != 0U)
             {
-                Scale_SendCurrentStatus();   /* 成功就报一次 ZERO */
+                TFT_ShowWeight(0.0f);
             }
         }
 
