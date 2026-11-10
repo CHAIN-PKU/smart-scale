@@ -17,19 +17,19 @@
 
 #if (WIFI_ENABLE == 1)
 
-#define WIFI_RING    2048U
+#define WIFI_RING    4096U
 #define WIFI_LINE    600U
 #define WIFI_PAGE    3072U
 
-/* Setup, then run. UDP link 4 answers the phone's "does this Wi-Fi have internet" check. */
+/* Setup, then run. */
 #define WIFI_PHASE_AT      0U
 #define WIFI_PHASE_MODE    1U
 #define WIFI_PHASE_SLEEP   2U
-#define WIFI_PHASE_SAP     3U
-#define WIFI_PHASE_MUX     4U
-#define WIFI_PHASE_DINFO   5U
-#define WIFI_PHASE_SRVOFF  6U
-#define WIFI_PHASE_UDP     7U
+#define WIFI_PHASE_MUX     3U
+#define WIFI_PHASE_DINFO   4U
+#define WIFI_PHASE_APQ     5U
+#define WIFI_PHASE_SAP     6U
+#define WIFI_PHASE_SRVOFF  7U
 #define WIFI_PHASE_SERVER  8U
 #define WIFI_PHASE_STO     9U
 #define WIFI_PHASE_RUN     10U
@@ -60,14 +60,17 @@ static uint8_t  s_next_kind;
 static uint32_t s_deadline;
 static uint32_t s_pending_at;
 static uint32_t s_at_due;
-static uint8_t  s_udp;
-static uint8_t  s_udp_try;
+static uint8_t  s_ap_ok;
+static uint8_t  s_srv_try;
+static uint8_t  s_beat_wait;
+static uint8_t  s_beat_bad;
+static uint32_t s_beat_at;
+static volatile uint8_t s_ovf;
 static uint8_t  s_keep;
 static uint8_t  s_probe_on;
 static uint8_t  s_probe_id;
 static uint8_t  s_probe_kind;
 static uint16_t s_raw_left;
-static uint8_t  s_raw_tcp;
 static uint8_t  s_raw_bad;
 static uint8_t  s_get_len;
 static uint8_t  s_get_on;
@@ -145,6 +148,19 @@ static void wifi_next_setup(void)
 {
     char sap[80];
 
+    if (s_ap_ok != 0U)
+    {
+        /* A phone is still attached: keep both the Soft AP and the running
+         * server, they are already exactly what they should be. */
+        if (s_phase == WIFI_PHASE_SAP)
+        {
+            s_phase = WIFI_PHASE_SRVOFF;
+        }
+        if (s_phase == WIFI_PHASE_SRVOFF)
+        {
+            s_phase = WIFI_PHASE_SERVER;
+        }
+    }
     if (s_phase == WIFI_PHASE_AT)
     {
         wifi_send("AT");
@@ -158,29 +174,30 @@ static void wifi_next_setup(void)
         /* After AP mode. Soft AP otherwise sleeps: the phone stays associated, but new TCP never arrives. */
         wifi_send("AT+SLEEP=0");
     }
-    else if (s_phase == WIFI_PHASE_SAP)
-    {
-        sprintf(sap, "AT+CWSAP=\"%s\",\"%s\",5,3", WIFI_AP_NAME, WIFI_AP_PASS);
-        wifi_send(sap);
-    }
     else if (s_phase == WIFI_PHASE_MUX)
     {
+        /* Before CWSAP on purpose: "no change" here proves the module still
+         * holds the settings of the previous session. */
         wifi_send("AT+CIPMUX=1");
     }
     else if (s_phase == WIFI_PHASE_DINFO)
     {
         wifi_send("AT+CIPDINFO=1");
     }
+    else if (s_phase == WIFI_PHASE_APQ)
+    {
+        /* Is a phone still on our Soft AP? */
+        wifi_send("AT+CWLIF");
+    }
+    else if (s_phase == WIFI_PHASE_SAP)
+    {
+        sprintf(sap, "AT+CWSAP=\"%s\",\"%s\",5,3", WIFI_AP_NAME, WIFI_AP_PASS);
+        wifi_send(sap);
+    }
     else if (s_phase == WIFI_PHASE_SRVOFF)
     {
         /* Once at boot. The module keeps a stale server across MCU reset ("no change"). */
         wifi_send("AT+CIPSERVER=0");
-    }
-    else if (s_phase == WIFI_PHASE_UDP)
-    {
-        /* Do not answer DNS. An A record of 192.168.4.1 makes the phone open
-         * TLS to this scale for every name and fills links 0-3. */
-        wifi_send("AT");
     }
     else if (s_phase == WIFI_PHASE_SERVER)
     {
@@ -199,13 +216,15 @@ static void wifi_next_setup(void)
 
 static uint8_t wifi_setup_accepted(const char *line)
 {
-    if (strstr(line, "OK") != NULL)
+    /* "no change" means the module kept the setting across an MCU reset. */
+    if ((strstr(line, "OK") != NULL) || (strstr(line, "no change") != NULL))
     {
         return 1U;
     }
     /* These may fail on older AT firmware. Keep booting either way. */
     if ((s_phase == WIFI_PHASE_SLEEP) || (s_phase == WIFI_PHASE_DINFO) ||
-        (s_phase == WIFI_PHASE_SRVOFF) || (s_phase == WIFI_PHASE_STO))
+        (s_phase == WIFI_PHASE_APQ) || (s_phase == WIFI_PHASE_SRVOFF) ||
+        (s_phase == WIFI_PHASE_STO))
     {
         if ((strncmp(line, "ERROR", 5) == 0) || (strstr(line, "FAIL") != NULL))
         {
@@ -219,6 +238,7 @@ static void wifi_enter_run(void)
 {
     s_phase   = WIFI_PHASE_RUN;
     s_at_wait = 0U;
+    s_beat_at = HAL_GetTick();
     wifi_note("up");
 }
 
@@ -244,7 +264,7 @@ static void wifi_begin_bytes(const uint8_t *data, uint16_t len)
     s_phase    = WIFI_PHASE_SEND;
 }
 
-static uint8_t wifi_dns_header(void)
+static uint8_t wifi_ipd_header(void)
 {
     char    *p;
     unsigned len = 0U;
@@ -279,27 +299,20 @@ static uint8_t wifi_dns_header(void)
     }
     s_line_len = 0U;
     s_seen     = id;
-    s_raw_tcp  = (id < 4U) ? 1U : 0U;
-    if (s_raw_tcp != 0U)
+    s_raw_bad  = 0U;
+    if ((s_get_on == 0U) || (s_get_id != id))
     {
-        s_raw_bad = 0U;
-        if ((s_get_on == 0U) || (s_get_id != id))
+        if (s_get_on != 0U)
         {
-            if ((s_get_on != 0U) && (s_get_id < 4U))
-            {
-                wifi_queue_close(s_get_id);
-            }
-            s_get_len = 0U;
-            s_get_on  = 0U;
+            wifi_queue_close(s_get_id);
         }
+        s_get_len = 0U;
+        s_get_on  = 0U;
     }
     if ((len == 0U) || (len > 65535U))
     {
         s_raw_left = 0U;
-        if (s_raw_tcp != 0U)
-        {
-            wifi_queue_close(id);
-        }
+        wifi_queue_close(id);
         return 1U;
     }
     s_raw_left = (uint16_t)len;
@@ -644,11 +657,19 @@ static void wifi_begin_send(const char *body)
 
 static void wifi_maybe_reset(void)
 {
-    if (s_reset_arm != 0U)
+    if (s_reset_arm == 0U)
     {
-        HAL_Delay(400U);
-        NVIC_SystemReset();
+        return;
     }
+    if ((s_hold != 0U) || (s_drop != 0U) || (s_at_wait != 0U))
+    {
+        /* Wait until the page connection is closed, then stop the server so
+         * the module does not carry it into the next boot. */
+        return;
+    }
+    wifi_send("AT+CIPSERVER=0");
+    HAL_Delay(200U);
+    NVIC_SystemReset();
 }
 
 static void wifi_page_done(void)
@@ -763,10 +784,6 @@ static void wifi_ask(const char *query)
 
 static void wifi_queue_close(uint8_t id)
 {
-    if ((s_udp != 0U) && (id == 4U))
-    {
-        return;
-    }
     if (id < 5U)
     {
         s_drop |= (uint8_t)(1U << id);
@@ -777,7 +794,7 @@ static void wifi_tcp_byte(uint8_t byte)
 {
     uint8_t id = s_seen;
 
-    if ((s_raw_bad != 0U) || (id >= 4U))
+    if (s_raw_bad != 0U)
     {
         return;
     }
@@ -828,7 +845,7 @@ static void wifi_tcp_end(void)
 {
     uint8_t id = s_seen;
 
-    if ((s_raw_bad != 0U) || (id >= 4U))
+    if (s_raw_bad != 0U)
     {
         s_raw_bad = 0U;
         return;
@@ -883,11 +900,6 @@ static void wifi_close_one(void)
     }
     for (id = 0U; id < 5U; id++)
     {
-        if ((s_udp != 0U) && (id == 4U))
-        {
-            s_drop &= (uint8_t)~(1U << id);
-            continue;
-        }
         if ((s_drop & (uint8_t)(1U << id)) == 0U)
         {
             continue;
@@ -1005,7 +1017,7 @@ static void wifi_on_esp_line(char *line)
     {
         /* 只有 +IPD 头、还没看到正文时不能关。手机把任意域名指到本机后，
          * 加密连接没有 GET，不关就会占满 4 条网页连接。 */
-        if ((mark == NULL) || (body == line) || (id >= 4U))
+        if ((mark == NULL) || (body == line))
         {
             return;
         }
@@ -1021,10 +1033,7 @@ static void wifi_on_esp_line(char *line)
         }
         return;
     }
-    if (id < 4U)
-    {
-        s_http |= (uint8_t)(1U << id);
-    }
+    s_http |= (uint8_t)(1U << id);
     if (wifi_take_probe(id, body) != 0U)
     {
         return;
@@ -1113,17 +1122,14 @@ static void wifi_on_sock_line(const char *line)
     {
         uint8_t id = (uint8_t)(line[0] - '0');
 
-        if (!((s_udp != 0U) && (id == 4U)))
+        s_drop &= (uint8_t)~(1U << id);
+        s_http &= (uint8_t)~(1U << id);
+        if ((s_get_on != 0U) && (s_get_id == id))
         {
-            s_drop &= (uint8_t)~(1U << id);
-            s_http &= (uint8_t)~(1U << id);
-            if ((s_get_on != 0U) && (s_get_id == id))
-            {
-                s_get_on  = 0U;
-                s_get_len = 0U;
-            }
-            wifi_note("closed");
+            s_get_on  = 0U;
+            s_get_len = 0U;
         }
+        wifi_note("closed");
     }
     else if (strstr(line, ",CONNECT") != NULL)
     {
@@ -1144,15 +1150,35 @@ static uint8_t wifi_take(uint8_t *out)
 
 static void wifi_revive(void)
 {
-    s_phase    = WIFI_PHASE_AT;
-    s_hold     = 0U;
-    s_at_wait  = 0U;
-    s_pending  = 0U;
-    s_drop     = 0U;
-    s_next_ok  = 0U;
-    s_probe_on = 0U;
-    s_raw_left = 0U;
-    s_keep     = 0U;
+    /* The module restarted: every byte in the ring and every session flag
+     * belongs to the session that just ended. */
+    s_head      = 0U;
+    s_tail      = 0U;
+    s_line_len  = 0U;
+    s_phase     = WIFI_PHASE_AT;
+    s_link      = 0U;
+    s_seen      = 0U;
+    s_kind      = 0U;
+    s_pending   = 0U;
+    s_drop      = 0U;
+    s_hold      = 0U;
+    s_at_wait   = 0U;
+    s_prompted  = 0U;
+    s_next_ok   = 0U;
+    s_next_id   = 0U;
+    s_next_kind = 0U;
+    s_keep      = 0U;
+    s_probe_on  = 0U;
+    s_raw_left  = 0U;
+    s_raw_bad   = 0U;
+    s_get_len   = 0U;
+    s_get_on    = 0U;
+    s_http      = 0U;
+    s_ap_ok     = 0U;
+    s_srv_try   = 0U;
+    s_beat_wait = 0U;
+    s_beat_bad  = 0U;
+    s_ovf       = 0U;
     wifi_open(115200U);
     if (s_phase != WIFI_PHASE_DEAD)
     {
@@ -1163,7 +1189,7 @@ static void wifi_revive(void)
 static void wifi_push_line(void)
 {
     s_line[s_line_len] = '\0';
-    if ((s_line_len > 0U) && (strstr(s_line, "ready") != NULL))
+    if ((s_line_len > 0U) && (strncmp(s_line, "ready", 5U) == 0))
     {
         /* The module rebooted at 115200. Start the access point again. */
         wifi_revive();
@@ -1175,16 +1201,32 @@ static void wifi_push_line(void)
         if (s_phase < WIFI_PHASE_RUN)
         {
             wifi_note(s_line);
-            if ((s_phase == WIFI_PHASE_UDP) && (strstr(s_line, "ALREADY") != NULL))
+            if ((s_phase == WIFI_PHASE_APQ) && (strchr(s_line, ':') != NULL))
             {
-                s_udp = 1U;
+                /* AT+CWLIF answers 192.168.4.x,<mac> while a phone is still
+                 * associated. The Soft AP is then already right, so do not
+                 * restart it and do not stop the server: the phone stays. */
+                s_ap_ok = 1U;
+            }
+            if ((s_phase == WIFI_PHASE_SERVER) &&
+                ((strncmp(s_line, "ERROR", 5) == 0) || (strstr(s_line, "FAIL") != NULL)))
+            {
+                /* Old sockets survive an MCU reset and can keep the server
+                 * from starting. Retry once, then start the whole setup over. */
+                if (s_srv_try == 0U)
+                {
+                    s_srv_try = 1U;
+                    wifi_next_setup();
+                }
+                else
+                {
+                    wifi_revive();
+                }
+                s_line_len = 0U;
+                return;
             }
             if (wifi_setup_accepted(s_line) != 0U)
             {
-                if ((s_phase == WIFI_PHASE_UDP) && (strstr(s_line, "OK") != NULL))
-                {
-                    s_udp = 1U;
-                }
                 s_phase++;
                 if (s_phase < WIFI_PHASE_RUN)
                 {
@@ -1195,24 +1237,14 @@ static void wifi_push_line(void)
                     wifi_enter_run();
                 }
             }
-            else if ((s_phase == WIFI_PHASE_UDP) &&
-                     ((strncmp(s_line, "ERROR", 5) == 0) || (strstr(s_line, "FAIL") != NULL)))
-            {
-                if ((s_udp != 0U) || (s_udp_try >= 2U))
-                {
-                    s_phase++;
-                    wifi_next_setup();
-                }
-                else
-                {
-                    s_udp_try++;
-                    wifi_next_setup();
-                }
-            }
         }
         else if (s_phase == WIFI_PHASE_RUN)
         {
             wifi_on_sock_line(s_line);
+            /* Any line proves the module is alive and answers AT again. */
+            s_beat_at   = HAL_GetTick();
+            s_beat_wait = 0U;
+            s_beat_bad  = 0U;
             /* 0,CLOSED is not the end of CIPCLOSE. Wait for a real OK or ERROR. */
             if ((s_at_wait != 0U) && (wifi_reply_done(s_line) != 0U))
             {
@@ -1233,7 +1265,6 @@ static void wifi_push_line(void)
                 s_keep  = 0U;
                 s_phase = WIFI_PHASE_RUN;
                 wifi_page_done();
-                wifi_maybe_reset();
             }
             else if ((strstr(s_line, "ERROR") != NULL) || (strstr(s_line, "FAIL") != NULL))
             {
@@ -1245,7 +1276,6 @@ static void wifi_push_line(void)
                 s_keep  = 0U;
                 s_phase = WIFI_PHASE_RUN;
                 wifi_page_done();
-                wifi_maybe_reset();
             }
             else
             {
@@ -1258,37 +1288,12 @@ static void wifi_push_line(void)
 
 void Wifi_Init(void)
 {
-    s_head      = 0U;
-    s_tail      = 0U;
-    s_line_len  = 0U;
-    s_phase     = 0U;
-    s_link      = 0U;
-    s_seen      = 0U;
-    s_kind      = 0U;
-    s_pending   = 0U;
-    s_drop      = 0U;
-    s_hold      = 0U;
-    s_at_wait   = 0U;
-    s_prompted  = 0U;
-    s_next_ok   = 0U;
-    s_next_id   = 0U;
-    s_next_kind = 0U;
-    s_udp       = 0U;
-    s_udp_try   = 0U;
-    s_keep      = 0U;
-    s_probe_on  = 0U;
-    s_raw_left  = 0U;
-    s_raw_tcp   = 0U;
-    s_raw_bad   = 0U;
-    s_get_len   = 0U;
-    s_get_on    = 0U;
-    s_get_id    = 0U;
-    s_notice       = 0U;
-    s_reset_arm    = 0U;
-    s_paint        = 0U;
-    s_paint_ready  = 0U;
-    s_sync_receipt = 0U;
-    s_http         = 0U;
+    /* Everything else is zeroed by the C run time at reset. */
+    s_head     = 0U;
+    s_tail     = 0U;
+    s_line_len = 0U;
+    s_phase    = WIFI_PHASE_AT;
+    s_beat_at  = HAL_GetTick();
     wifi_open(115200U);
     if (s_phase != WIFI_PHASE_DEAD)
     {
@@ -1304,6 +1309,11 @@ void Wifi_Poll(void)
     {
         return;
     }
+    if (s_ovf != 0U)
+    {
+        s_ovf      = 0U;
+        s_line_len = 0U;    /* Bytes were dropped: this line cannot be trusted. */
+    }
     if ((s_pending != 0U) && (s_at_wait == 0U) && (s_phase == WIFI_PHASE_RUN) &&
         ((HAL_GetTick() - s_pending_at) > 2000U))
     {
@@ -1314,12 +1324,9 @@ void Wifi_Poll(void)
     {
         if (s_raw_left > 0U)
         {
-            if (s_raw_tcp != 0U)
-            {
-                wifi_tcp_byte(byte);
-            }
+            wifi_tcp_byte(byte);
             s_raw_left--;
-            if ((s_raw_left == 0U) && (s_raw_tcp != 0U))
+            if (s_raw_left == 0U)
             {
                 wifi_tcp_end();
             }
@@ -1353,9 +1360,9 @@ void Wifi_Poll(void)
                 s_line_len = 0U;
             }
         }
-        if ((s_line_len > 0U) && (wifi_dns_header() != 0U))
+        if ((s_line_len > 0U) && (wifi_ipd_header() != 0U))
         {
-            /* DNS payload is binary. Do not parse it as AT text. */
+            /* +IPD payload is binary. Do not parse it as AT text. */
         }
     }
 
@@ -1369,6 +1376,19 @@ void Wifi_Poll(void)
             if (s_phase != WIFI_PHASE_DEAD)
             {
                 wifi_next_setup();
+            }
+        }
+        else if (s_phase == WIFI_PHASE_SERVER)
+        {
+            /* The server did not confirm. Retry once, then start over. */
+            if (s_srv_try == 0U)
+            {
+                s_srv_try = 1U;
+                wifi_next_setup();
+            }
+            else
+            {
+                wifi_revive();
             }
         }
         else
@@ -1388,17 +1408,28 @@ void Wifi_Poll(void)
     {
         s_hold  = 0U;
         s_keep  = 0U;
-        if ((s_udp == 0U) || (s_link != 4U))
-        {
-            wifi_queue_close(s_link);
-        }
+        wifi_queue_close(s_link);
         s_phase = WIFI_PHASE_RUN;
         wifi_page_done();
-        wifi_maybe_reset();
     }
     if ((s_at_wait != 0U) && ((int32_t)(HAL_GetTick() - s_at_due) >= 0))
     {
         s_at_wait = 0U;
+        if (s_beat_wait != 0U)
+        {
+            /* Two silent heartbeats in a row: the module is not answering. */
+            s_beat_wait = 0U;
+            s_beat_at   = HAL_GetTick();
+            if (s_beat_bad != 0U)
+            {
+                s_beat_bad = 0U;
+                wifi_revive();
+            }
+            else
+            {
+                s_beat_bad = 1U;
+            }
+        }
     }
     /* 先关掉这一条网页连接，再画屏幕。浏览器要等连接关闭才算页面完成。 */
     wifi_close_one();
@@ -1417,7 +1448,20 @@ void Wifi_Poll(void)
         wifi_note("get");
         wifi_run_kind(kind);
     }
+    if ((s_phase == WIFI_PHASE_RUN) && (s_at_wait == 0U) && (s_hold == 0U) &&
+        (s_pending == 0U) && (s_next_ok == 0U) && (s_probe_on == 0U) &&
+        (s_drop == 0U) && (s_raw_left == 0U) && (s_get_on == 0U) &&
+        ((HAL_GetTick() - s_beat_at) > 8000U))
+    {
+        /* Nothing from the module for 8 s: ask it something. Two silent
+         * answers in a row mean it is wedged, so run the setup again. */
+        wifi_send("AT");
+        s_at_wait   = 1U;
+        s_beat_wait = 1U;
+        s_at_due    = HAL_GetTick() + 800U;
+    }
     wifi_service_side();
+    wifi_maybe_reset();
 }
 
 void Wifi_OnPcLine(const char *line)
@@ -1459,6 +1503,10 @@ void Wifi_Uart4Isr(void)
         {
             s_ring[s_head] = byte;
             s_head         = next;
+        }
+        else
+        {
+            s_ovf = 1U;
         }
     }
     else if ((sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE | USART_SR_PE)) != 0U)
