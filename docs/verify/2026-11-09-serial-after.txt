@@ -1,0 +1,73 @@
+=== single file: tests/unit/test_serial_device.py ===
+.....                                                                    [100%]
+5 passed in 0.15s
+
+
+
+=== full suite: scripts/test.ps1 ===
+============================= test session starts =============================
+platform win32 -- Python 3.10.2, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\stm32\projects\smart-scale
+configfile: pyproject.toml
+plugins: asyncio-1.4.0
+asyncio: mode=auto, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 184 items / 1 deselected / 183 selected
+
+tests\integration\test_banana_pipeline.py ..                             [  1%]
+tests\unit\test_ask.py ..........                                        [  6%]
+tests\unit\test_bad_line.py ..                                           [  7%]
+tests\unit\test_board_capture.py ..                                      [  8%]
+tests\unit\test_board_fusion.py ......                                   [ 12%]
+tests\unit\test_boot_capture.py ..                                       [ 13%]
+tests\unit\test_boot_tare.py ..                                          [ 14%]
+tests\unit\test_cloud_request.py ...                                     [ 15%]
+tests\unit\test_correct.py ...                                           [ 17%]
+tests\unit\test_demo_card.py ...                                         [ 19%]
+tests\unit\test_desk.py ..                                               [ 20%]
+tests\unit\test_display_line.py ..                                       [ 21%]
+tests\unit\test_domain_models.py .....                                   [ 24%]
+tests\unit\test_dynamics.py ..                                           [ 25%]
+tests\unit\test_error_guard.py ..                                        [ 26%]
+tests\unit\test_error_then_stable.py ..                                  [ 27%]
+tests\unit\test_extra_field.py ..                                        [ 28%]
+tests\unit\test_food_table.py ......                                     [ 31%]
+tests\unit\test_fusion.py .....                                          [ 34%]
+tests\unit\test_host_main.py .........                                   [ 39%]
+tests\unit\test_label_guard.py ...                                       [ 40%]
+tests\unit\test_live_view.py ........                                    [ 45%]
+tests\unit\test_long_line.py ..                                          [ 46%]
+tests\unit\test_loopback.py ...                                          [ 48%]
+tests\unit\test_overload_guard.py ..                                     [ 49%]
+tests\unit\test_place_and_remove.py ..                                   [ 50%]
+tests\unit\test_placement_frame.py ..                                    [ 51%]
+tests\unit\test_portion.py ....                                          [ 53%]
+tests\unit\test_protocol_messages.py .............                       [ 60%]
+tests\unit\test_providers.py .....                                       [ 63%]
+tests\unit\test_quote.py ....                                            [ 65%]
+tests\unit\test_receipt.py ...                                           [ 67%]
+tests\unit\test_recognized_sale.py ..                                    [ 68%]
+tests\unit\test_remote_query.py ......                                   [ 71%]
+tests\unit\test_removed_guard.py ..                                      [ 72%]
+tests\unit\test_reply_record.py ..                                       [ 73%]
+tests\unit\test_reply_sale.py ..                                         [ 74%]
+tests\unit\test_response_parse.py ...                                    [ 76%]
+tests\unit\test_serial_device.py .....                                   [ 79%]
+tests\unit\test_serial_label_guard.py ..                                 [ 80%]
+tests\unit\test_serial_replay.py ..                                      [ 81%]
+tests\unit\test_serial_reply.py ..                                       [ 82%]
+tests\unit\test_serial_reply_sequence.py ..                              [ 83%]
+tests\unit\test_serial_sequence.py ..                                    [ 84%]
+tests\unit\test_siliconflow_vision.py ....                               [ 86%]
+tests\unit\test_simulator.py .......                                     [ 90%]
+tests\unit\test_simulator_cli.py ..                                      [ 91%]
+tests\unit\test_speech.py ....                                           [ 93%]
+tests\unit\test_sqlite_repository.py .....                               [ 96%]
+tests\unit\test_tare_rejected.py ..                                      [ 97%]
+tests\unit\test_tare_roundtrip.py ..                                     [ 98%]
+tests\unit\test_unpriced.py ..                                           [100%]
+
+====================== 183 passed, 1 deselected in 4.39s ======================
+
+
+
+SINGLE_EXIT=0 FULL_EXIT=0
