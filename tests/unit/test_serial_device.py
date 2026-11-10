@@ -89,6 +89,12 @@ def test_open_requests_115200_8n1(monkeypatch) -> None:
         def __init__(self, **kwargs: object) -> None:
             captured.update(kwargs)
 
+        def __setattr__(self, name: str, value: object) -> None:
+            captured[name] = value
+
+        def open(self) -> None:
+            captured["opened"] = True
+
         def close(self) -> None:
             captured["closed"] = True
 

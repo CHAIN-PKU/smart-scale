@@ -1,0 +1,158 @@
+============================= test session starts =============================
+platform win32 -- Python 3.10.2, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\stm32\projects\smart-scale
+configfile: pyproject.toml
+plugins: asyncio-1.4.0
+asyncio: mode=auto, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 184 items / 1 deselected / 183 selected
+
+..\..\..\..\..\stm32\projects\smart-scale\tests\integration\test_banana_pipeline.py . [  0%]
+.                                                                        [  1%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_ask.py ....... [  4%]
+...                                                                      [  6%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_bad_line.py .. [  7%]
+                                                                         [  7%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_board_capture.py . [  8%]
+.                                                                        [  8%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_board_fusion.py . [  9%]
+.....                                                                    [ 12%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_boot_capture.py . [ 12%]
+.                                                                        [ 13%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_boot_tare.py . [ 13%]
+.                                                                        [ 14%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_cloud_request.py . [ 14%]
+..                                                                       [ 15%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_correct.py ... [ 17%]
+                                                                         [ 17%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_demo_card.py . [ 18%]
+..                                                                       [ 19%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_desk.py ..     [ 20%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_display_line.py . [ 20%]
+.                                                                        [ 21%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_domain_models.py . [ 21%]
+....                                                                     [ 24%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_dynamics.py .. [ 25%]
+                                                                         [ 25%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_error_guard.py . [ 25%]
+.                                                                        [ 26%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_error_then_stable.py . [ 26%]
+.                                                                        [ 27%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_extra_field.py . [ 27%]
+.                                                                        [ 28%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_food_table.py . [ 28%]
+.....                                                                    [ 31%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_fusion.py .... [ 33%]
+.                                                                        [ 34%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_host_main.py . [ 34%]
+........                                                                 [ 39%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_label_guard.py . [ 39%]
+..                                                                       [ 40%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_live_view.py . [ 41%]
+.......                                                                  [ 45%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_long_line.py . [ 45%]
+.                                                                        [ 46%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_loopback.py .. [ 47%]
+.                                                                        [ 48%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_overload_guard.py . [ 48%]
+.                                                                        [ 49%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_place_and_remove.py . [ 49%]
+.                                                                        [ 50%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_placement_frame.py . [ 50%]
+.                                                                        [ 51%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_portion.py ... [ 53%]
+.                                                                        [ 53%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_protocol_messages.py . [ 54%]
+............                                                             [ 60%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_providers.py . [ 61%]
+....                                                                     [ 63%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_quote.py ....  [ 65%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_receipt.py ... [ 67%]
+                                                                         [ 67%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_recognized_sale.py . [ 67%]
+.                                                                        [ 68%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_remote_query.py . [ 68%]
+.....                                                                    [ 71%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_removed_guard.py . [ 72%]
+.                                                                        [ 72%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_reply_record.py . [ 73%]
+.                                                                        [ 73%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_reply_sale.py . [ 74%]
+.                                                                        [ 74%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_response_parse.py . [ 75%]
+..                                                                       [ 76%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_device.py . [ 77%]
+...F                                                                     [ 79%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_label_guard.py . [ 79%]
+.                                                                        [ 80%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_replay.py . [ 80%]
+.                                                                        [ 81%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_reply.py . [ 81%]
+.                                                                        [ 82%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_reply_sequence.py . [ 83%]
+.                                                                        [ 83%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_sequence.py . [ 84%]
+.                                                                        [ 84%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_siliconflow_vision.py . [ 85%]
+...                                                                      [ 86%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_simulator.py . [ 87%]
+......                                                                   [ 90%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_simulator_cli.py . [ 91%]
+.                                                                        [ 91%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_speech.py .... [ 93%]
+                                                                         [ 93%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_sqlite_repository.py . [ 94%]
+....                                                                     [ 96%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_tare_rejected.py . [ 97%]
+.                                                                        [ 97%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_tare_roundtrip.py . [ 98%]
+.                                                                        [ 98%]
+..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_unpriced.py .. [100%]
+
+================================== FAILURES ===================================
+________________________ test_open_requests_115200_8n1 ________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CF058F43D0>
+
+    def test_open_requests_115200_8n1(monkeypatch) -> None:
+        import serial
+    
+        from scale_host.device.serial_device import open_system_port
+    
+        captured: dict[str, object] = {}
+    
+        class _FakeSerial:
+            def __init__(self, **kwargs: object) -> None:
+                captured.update(kwargs)
+    
+            def close(self) -> None:
+                captured["closed"] = True
+    
+        monkeypatch.setattr(serial, "Serial", _FakeSerial)
+>       opened = open_system_port("COM3")
+
+C:\stm32\projects\smart-scale\tests\unit\test_serial_device.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'COM3'
+
+    def open_system_port(name: str) -> PyserialPort:
+        import serial
+    
+        try:
+            handle = serial.Serial()
+            handle.port = name
+            handle.baudrate = 115200
+            handle.bytesize = serial.EIGHTBITS
+            handle.parity = serial.PARITY_NONE
+            handle.stopbits = serial.STOPBITS_ONE
+            handle.timeout = 1
+            handle.write_timeout = 1
+            handle.dtr = False
+            handle.rts = False
+>           handle.open()
+E           AttributeError: '_FakeSerial' object has no attribute 'open'
+
+C:\stm32\projects\smart-scale\host\scale_host\device\serial_device.py:193: AttributeError
+=========================== short test summary info ===========================
+FAILED ..\..\..\..\..\stm32\projects\smart-scale\tests\unit\test_serial_device.py::test_open_requests_115200_8n1
+================= 1 failed, 182 passed, 1 deselected in 5.06s =================
